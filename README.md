@@ -22,6 +22,11 @@ npm run dev        # Entwicklungsserver: http://localhost:5173
 Änderungen in `daten/` werden sofort geprüft und im Browser neu geladen.
 Fehler in den Daten erscheinen im Terminal und als Hinweis im Browser.
 
+> `index.html` **nicht per Doppelklick** öffnen – die App braucht einen Webserver
+> (`npm run dev`, `npm run preview` oder das Hosting). Besucher brauchen dagegen nichts
+> außer einem Browser.
+
+
 | Befehl | Wirkung |
 |---|---|
 | `npm run dev` | Entwicklungsserver (auch im WLAN erreichbar → mit dem Handy testen) |
@@ -60,7 +65,12 @@ Offline-Region, fehlende Fahrzeiten, Platzhalter in Impressum/Datenschutz.
 1. Repository auf GitHub anlegen und pushen (`git remote add origin …`, `git push -u origin main`).
 2. Auf GitHub: **Settings → Pages → Source: „GitHub Actions“**.
 3. Jeder Push auf `main` testet, baut und veröffentlicht automatisch
-   (`.github/workflows/github-pages.yml`).
+   (`.github/workflows/github-pages.yml`). Den Fortschritt siehst du unter „Actions“.
+4. Die App ist dann unter `https://<benutzername>.github.io/RallyeWebApp/` erreichbar –
+   ganz normal im Browser, ohne Befehle oder Installation.
+
+GitHub Pages ist für **öffentliche** Repositories kostenlos. Für private Repositories braucht
+man GitHub Pro (für Studierende im GitHub Student Developer Pack enthalten).
 
 ### Eigener Webspace (z. B. Strato)
 

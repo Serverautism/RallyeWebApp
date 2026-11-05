@@ -33,6 +33,34 @@ function datenPlugin() {
     },
     configureServer(server) {
       bauen(server);
+      // Die erzeugten Daten selbst ausliefern: Vite merkt sich die Dateien in public/ beim Start
+      // und würde neu erzeugte Dateien (neue Versionskennung im Namen) sonst nicht finden.
+      const ausgabe = path.resolve('public', 'daten');
+      const TYPEN = {
+        '.json': 'application/json; charset=utf-8',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.png': 'image/png',
+        '.webp': 'image/webp',
+      };
+      server.middlewares.use((req, res, next) => {
+        let pfad;
+        try {
+          pfad = decodeURIComponent((req.url || '').split('?')[0]);
+        } catch {
+          return next();
+        }
+        if (!pfad.startsWith('/daten/')) return next();
+        const datei = path.resolve(ausgabe, pfad.slice('/daten/'.length));
+        if (!datei.startsWith(ausgabe + path.sep) || !fs.existsSync(datei) || !fs.statSync(datei).isFile()) {
+          res.statusCode = 404;
+          res.end('Nicht gefunden');
+          return;
+        }
+        res.setHeader('Content-Type', TYPEN[path.extname(datei).toLowerCase()] || 'application/octet-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        fs.createReadStream(datei).pipe(res);
+      });
       const ordner = path.resolve('daten');
       server.watcher.add(ordner);
       let timer = null;
