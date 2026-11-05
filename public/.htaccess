@@ -1,0 +1,22 @@
+# Cache-Regeln für Apache-Webspace (z. B. Strato). Auf GitHub Pages wirkungslos.
+<IfModule mod_headers.c>
+  # Dateien mit Versionskennung im Namen ändern sich nie → ein Jahr speichern
+  <FilesMatch "\.(js|mjs|css|woff2|woff)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+  <FilesMatch "\.[0-9a-f]{10}\.(json|jpg|jpeg|png|webp)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+  # Startseite, Service Worker und Manifeste immer frisch prüfen
+  <FilesMatch "^(index\.html|sw\.js|manifest\.json|manifest\.webmanifest)$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+  # Live-Status höchstens 15 Sekunden zwischenspeichern
+  <Files "status.json">
+    Header set Cache-Control "public, max-age=15"
+  </Files>
+</IfModule>
+<IfModule mod_mime.c>
+  AddType application/manifest+json .webmanifest
+  AddType text/javascript .mjs
+</IfModule>

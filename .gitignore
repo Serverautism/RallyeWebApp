@@ -1,0 +1,11 @@
+# Abhängigkeiten und Build-Ergebnisse
+node_modules/
+dist/
+# wird aus daten/ erzeugt (npm run daten / dev / build)
+public/daten/
+# System- und Editor-Dateien
+.DS_Store
+Thumbs.db
+*.log
+.idea/
+.vscode/

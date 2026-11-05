@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#18201C" />
+    <meta name="description" content="Offline-fähige Zuschauer-App: Karte mit Wertungsprüfungen, Zuschauerpunkten und Parkplätzen, Zeitplan, Tagesplaner und Starterliste." />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Rallye" />
+    <title>Rallye – Zuschauer-App</title>
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="icons/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  </head>
+  <body>
+    <div id="app" class="app">
+      <div id="kopfleiste" class="kopfleiste"></div>
+      <main id="haupt" class="haupt">
+        <section id="karten-ansicht" class="karten-ansicht" hidden>
+          <div id="karte" class="karte"></div>
+          <div id="karten-ui" class="karten-ui"></div>
+        </section>
+        <section id="ansicht" class="ansicht" tabindex="-1"></section>
+      </main>
+      <nav id="tabbar" class="tabbar" aria-label="Hauptnavigation"></nav>
+      <div id="toasts" class="toasts" aria-live="polite"></div>
+    </div>
+    <noscript>Diese App benötigt JavaScript. / This app requires JavaScript.</noscript>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

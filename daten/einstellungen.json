@@ -1,0 +1,45 @@
+{
+  "veranstaltung": {
+    "name_de": "62. Rallye Wartburg",
+    "name_en": "62nd Rallye Wartburg",
+    "kurzname": "Rallye Wartburg",
+    "jahr": 2027,
+    "veranstalter": "MC Eisenach e. V. im ADAC",
+    "zeitzone": "Europe/Berlin",
+    "beispieldaten": true
+  },
+  "tage": [
+    { "id": "fr", "datum": "2027-05-28", "name_de": "Freitag", "name_en": "Friday" },
+    { "id": "sa", "datum": "2027-05-29", "name_de": "Samstag", "name_en": "Saturday" }
+  ],
+  "karte": {
+    "stil": "https://tiles.openfreemap.org/styles/positron",
+    "mitte": null,
+    "zoom": null,
+    "region": [10.225, 50.915, 10.445, 51.025],
+    "offline_max_zoom": 14
+  },
+  "planer": {
+    "startort": "S1"
+  },
+  "favoriten": {
+    "vorwarnung_min": 5
+  },
+  "zuschauerpass": {
+    "ziel": 5,
+    "verweildauer_min": 5,
+    "radius_m": 75
+  },
+  "status": {
+    "url": "status.json",
+    "abfrage_s": 60
+  },
+  "kontakt": {
+    "notruf": "112",
+    "rallyeleitung_tel": "",
+    "rallyebuero_tel": "",
+    "email": "",
+    "webseite": ""
+  },
+  "starter_anzahl": null
+}
