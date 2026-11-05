@@ -66,6 +66,7 @@ export default {
   'offline.keine_verbindung': 'Keine Verbindung',
   'offline.laedt': 'Karte wird gespeichert {prozent} %',
   'offline.fehler': 'Offline-Karte nicht verfügbar',
+  'offline.unsicher': 'Offline nur über HTTPS',
   'offline.teilweise': 'Karte teilweise gespeichert',
 
   'zufahrt.frei': 'Zufahrt {p} ohne Sperrung',
@@ -213,6 +214,10 @@ export default {
   'mehr.karte_teilweise': '{fertig} von {gesamt} gespeichert',
   'mehr.karte_offline': 'noch nicht gespeichert (offline)',
   'mehr.karte_fehler': 'nicht gespeichert',
+  'mehr.grund_unsicher': 'Diese Adresse ({adresse}) ist nicht verschlüsselt. Browser erlauben den Offline-Speicher nur über HTTPS oder auf dem eigenen Rechner (localhost). Zum Testen auf dem Handy die GitHub-Pages-Adresse verwenden.',
+  'mehr.grund_speicher': 'Der Browser erlaubt dieser Seite keinen Speicher (z. B. privates Fenster oder gesperrte Website-Daten).',
+  'mehr.grund_voll': 'Auf dem Gerät ist nicht genug Speicher frei.',
+  'mehr.grund_sonst': 'Die Karte konnte nicht geladen werden: {fehler}',
   'mehr.neue_daten': 'Auf neue Daten prüfen',
   'mehr.karte_neu': 'Offline-Karte neu speichern',
   'mehr.kontakt': 'Kontakt',

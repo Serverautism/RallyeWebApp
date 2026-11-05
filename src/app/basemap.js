@@ -117,9 +117,19 @@ async function parallel(liste, anzahl, fn) {
   await Promise.all(arbeiter);
 }
 
-function setzeStatus(phase, fertig = 0, gesamt = 0) {
-  zustand.karteOffline = { phase, fertig, gesamt };
+/**
+ * @param {string} phase unbekannt | laedt | fertig | teilweise | fehler | offline
+ * @param {string|null} grund bei Fehlern: 'unsicher' (kein HTTPS), 'speicher' (Browser-Speicher gesperrt) oder ein Fehlertext
+ */
+function setzeStatus(phase, fertig = 0, gesamt = 0, grund = null) {
+  zustand.karteOffline = { phase, fertig, gesamt, grund };
   melden('karteOffline');
+}
+
+/** Warum kann der Browser nichts speichern? Ohne HTTPS (oder localhost) gibt es keinen Offline-Speicher. */
+export function speicherGrund() {
+  if (typeof isSecureContext !== 'undefined' && !isSecureContext) return 'unsicher';
+  return 'speicher';
 }
 
 let laeuft = false;
@@ -133,7 +143,7 @@ export async function regionVorladen(karte) {
   const kopf = await cache(KOPF_CACHE);
   const kacheln = await cache(KARTE_CACHE);
   if (!kopf || !kacheln) {
-    setzeStatus('fehler');
+    setzeStatus('fehler', 0, 0, speicherGrund());
     return;
   }
   if (!navigator.onLine) {
@@ -145,7 +155,7 @@ export async function regionVorladen(karte) {
     // 1. Frische Kopf-Ressourcen holen (noch nicht aktivieren)
     const neuKopf = [];
     const stilAntwort = await fetch(karte.stil, { cache: 'no-cache' });
-    if (!stilAntwort.ok) throw new Error('Stil nicht erreichbar');
+    if (!stilAntwort.ok) throw new Error(`Kartenstil: HTTP ${stilAntwort.status}`);
     const stil = await stilAntwort.clone().json();
     neuKopf.push([karte.stil, stilAntwort]);
     const quellen = [];
@@ -154,7 +164,7 @@ export async function regionVorladen(karte) {
       let tj = q;
       if (q.url) {
         const a = await fetch(q.url, { cache: 'no-cache' });
-        if (!a.ok) throw new Error('TileJSON nicht erreichbar');
+        if (!a.ok) throw new Error(`TileJSON: HTTP ${a.status}`);
         tj = await a.clone().json();
         neuKopf.push([q.url, a]);
         kopfUrls.add(q.url);
@@ -224,8 +234,10 @@ export async function regionVorladen(karte) {
     schreiben('karteOffline', { fertig: true, anzahl: urls.length, zeit: Date.now() });
     setzeStatus('fertig', urls.length, urls.length);
     speicherDauerhaft();
-  } catch {
-    setzeStatus(lesen('karteOffline')?.fertig ? 'fertig' : 'fehler');
+  } catch (fehler) {
+    console.warn('Offline-Karte:', fehler);
+    if (lesen('karteOffline')?.fertig) setzeStatus('fertig');
+    else setzeStatus('fehler', 0, 0, fehler?.name === 'QuotaExceededError' ? 'voll' : String(fehler?.message || fehler));
   } finally {
     laeuft = false;
   }

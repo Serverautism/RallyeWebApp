@@ -66,6 +66,7 @@ export default {
   'offline.keine_verbindung': 'No connection',
   'offline.laedt': 'Saving map {prozent} %',
   'offline.fehler': 'Offline map not available',
+  'offline.unsicher': 'Offline only via HTTPS',
   'offline.teilweise': 'Map partly saved',
 
   'zufahrt.frei': 'Access to {p} not closed',
@@ -213,6 +214,10 @@ export default {
   'mehr.karte_teilweise': '{fertig} of {gesamt} saved',
   'mehr.karte_offline': 'not saved yet (offline)',
   'mehr.karte_fehler': 'not saved',
+  'mehr.grund_unsicher': 'This address ({adresse}) is not encrypted. Browsers only allow offline storage via HTTPS or on your own computer (localhost). To test on a phone, use the GitHub Pages address.',
+  'mehr.grund_speicher': 'The browser does not allow this site to store data (e.g. private window or blocked site data).',
+  'mehr.grund_voll': 'There is not enough free storage on this device.',
+  'mehr.grund_sonst': 'The map could not be loaded: {fehler}',
   'mehr.neue_daten': 'Check for new data',
   'mehr.karte_neu': 'Save offline map again',
   'mehr.kontakt': 'Contact',

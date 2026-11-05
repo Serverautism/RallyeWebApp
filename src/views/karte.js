@@ -23,7 +23,9 @@ function offlinePlakette() {
     return html`<span class="plakette plakette-grau">${t('offline.laedt', { prozent: p })}</span>`;
   }
   if (o.phase === 'teilweise') return html`<span class="plakette plakette-orange">${t('offline.teilweise')}</span>`;
-  if (o.phase === 'fehler') return html`<span class="plakette plakette-orange">${t('offline.fehler')}</span>`;
+  if (o.phase === 'fehler') {
+    return html`<a class="plakette plakette-orange" href="#/mehr">${o.grund === 'unsicher' ? t('offline.unsicher') : t('offline.fehler')}</a>`;
+  }
   return '';
 }
 

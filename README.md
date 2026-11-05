@@ -22,6 +22,11 @@ npm run dev        # Entwicklungsserver: http://localhost:5173
 Änderungen in `daten/` werden sofort geprüft und im Browser neu geladen.
 Fehler in den Daten erscheinen im Terminal und als Hinweis im Browser.
 
+> **Offline-Modus nur über HTTPS:** Browser erlauben Offline-Speicher und Service Worker nur auf
+> `https://…` oder `http://localhost`. Über die WLAN-Adresse (`http://192.168.…:5173`) läuft die App
+> auf dem Handy zwar, speichert aber nichts – die App zeigt dann „Offline nur über HTTPS“.
+> Offline auf dem Handy also über die GitHub-Pages-Adresse testen.
+
 > `index.html` **nicht per Doppelklick** öffnen – die App braucht einen Webserver
 > (`npm run dev`, `npm run preview` oder das Hosting). Besucher brauchen dagegen nichts
 > außer einem Browser.
@@ -29,7 +34,7 @@ Fehler in den Daten erscheinen im Terminal und als Hinweis im Browser.
 
 | Befehl | Wirkung |
 |---|---|
-| `npm run dev` | Entwicklungsserver (auch im WLAN erreichbar → mit dem Handy testen) |
+| `npm run dev` | Entwicklungsserver (auch im WLAN erreichbar → mit dem Handy testen, aber ohne Offline-Modus, siehe unten) |
 | `npm run daten` | nur die Daten prüfen und bauen |
 | `npm test` | automatische Tests (Zeitzonen, CSV, Planer, Kalender, Daten-Prüfungen, Übersetzungen) |
 | `npm run build` | fertige App nach `dist/` (bricht bei Datenfehlern ab) |

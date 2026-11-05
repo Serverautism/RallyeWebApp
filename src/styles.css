@@ -486,6 +486,9 @@ p.klein {
   white-space: nowrap;
   vertical-align: middle;
 }
+a.plakette {
+  text-decoration: none;
+}
 .plakette-gruen {
   background: var(--gruen-hell);
   color: var(--gruen-text);

@@ -45,6 +45,17 @@ function offlineKarte() {
             : o.phase === 'fehler'
               ? t('mehr.karte_fehler')
               : '–';
+  // Konkreter Grund, warum nicht gespeichert werden kann
+  const grundText =
+    o.phase !== 'fehler' || !o.grund
+      ? ''
+      : o.grund === 'unsicher'
+        ? t('mehr.grund_unsicher', { adresse: location.host })
+        : o.grund === 'speicher'
+          ? t('mehr.grund_speicher')
+          : o.grund === 'voll'
+            ? t('mehr.grund_voll')
+            : t('mehr.grund_sonst', { fehler: o.grund });
   return html`<section class="karte-box">
     <div class="box-kopf"><h2 class="abschnitt">${t('mehr.offline_daten')}</h2>
       <span class="plakette ${o.phase === 'fertig' ? 'plakette-gruen' : 'plakette-grau'}">${o.phase === 'fertig' ? t('mehr.gespeichert') : t('mehr.nicht_vollstaendig')}</span></div>
@@ -54,6 +65,7 @@ function offlineKarte() {
       ${speicherText ? html`<div><dt>${t('mehr.speicher')}</dt><dd>${speicherText}</dd></div>` : ''}
       <div><dt>${t('mehr.version')}</dt><dd>${d.version}</dd></div>
     </dl>
+    ${grundText ? html`<div class="hinweis-karte hinweis-orange">${icon('warnung', 20)}<div><span>${grundText}</span></div></div>` : ''}
     <div class="knopf-spalte">
       <button type="button" class="knopf knopf-rahmen" data-aktion="pruefen">${icon('laden', 18)} ${t('mehr.neue_daten')}</button>
       <button type="button" class="knopf knopf-text" data-aktion="karte-neu">${icon('aktualisieren', 18)} ${t('mehr.karte_neu')}</button>
