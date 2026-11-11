@@ -1,28 +1,52 @@
-// Ansicht „Zeitplan“ mit Sperrzeiten, Live-Status und Meldungen
+// Ansicht „Zeitplan“ mit Sperrzeiten und dem Stand laut Zeitplan („Jetzt“ / „Als Nächstes“)
 
 import { html } from '../app/html.js';
-import { icon } from '../app/icons.js';
 import { t, feld } from '../app/i18n.js';
 import { zustand } from '../app/zustand.js';
 import { jetzt } from '../app/uhr.js';
 import { zeit, zeitMitTag, km, wpKurz, datumUndZeit, relativ } from '../app/format.js';
 import { planEintraege, planFuerTag } from '../app/meine.js';
-import { seitenKopf, tagReiter, standardTag, statusPlakette, statusHinweis, leer } from './teile.js';
+import { seitenKopf, tagReiter, standardTag, statusPlakette, statusHinweis, wpStatus, leer } from './teile.js';
 
-function meldungen() {
-  const s = zustand.status;
-  if (!s) return '';
-  const liste = s.meldungen || [];
-  const stand = s.stand ?? s.abgerufen;
-  if (!liste.length) return '';
-  return html`<section class="meldungen" aria-label="${t('zeitplan.meldungen')}">
-    ${liste.slice(0, 5).map(
-      (m) => html`<div class="meldung ${m.wichtig ? 'wichtig' : ''}">
-        ${icon(m.wichtig ? 'warnung' : 'info', 18)}
-        <div><p>${feld(m, 'text')}</p>${m.zeit ? html`<span class="klein">${zeitMitTag(m.zeit)}</span>` : ''}</div>
-      </div>`,
-    )}
-    ${stand ? html`<span class="klein stand">${t('status.stand', { zeit: datumUndZeit(stand) })}</span>` : ''}
+// Ein Programmpunkt ohne Endzeit gilt so lange als „jetzt“
+const OHNE_ENDE_MS = 30 * 60000;
+// „Als Nächstes“ nur zeigen, wenn es bald so weit ist (vor der Veranstaltung genügt die Liste)
+const NAECHSTES_FENSTER_MS = 12 * 3600000;
+
+function titelVon(z) {
+  const d = zustand.daten;
+  if (z.wp) {
+    const wp = d.wp.get(z.wp);
+    return `${wpKurz(wp)} · ${feld(wp, 'name')}`;
+  }
+  return feld(z, 'titel');
+}
+
+/** Was läuft gerade und was kommt als Nächstes – allein aus dem Zeitplan berechnet. */
+function jetztKasten(nun) {
+  const d = zustand.daten;
+  const laufend = [];
+  let naechstes = null;
+  for (const z of d.zeitplan) {
+    if (z.wp) {
+      const s = wpStatus(z.wp);
+      if (s.status === 'laeuft') laufend.push(html`<li><strong>${titelVon(z)}</strong> ${t('zeitplan.jetzt_wp', { zeit: zeit(s.ende) })}</li>`);
+    } else if (z.von <= nun && nun < (z.bis ?? z.von + OHNE_ENDE_MS)) {
+      laufend.push(html`<li><strong>${titelVon(z)}</strong>${z.bis ? ` ${t('zeitplan.jetzt_bis', { zeit: zeit(z.bis) })}` : ''}</li>`);
+    }
+    if (z.von > nun && (!naechstes || z.von < naechstes.von)) naechstes = z;
+  }
+  const naechstesBald = naechstes && naechstes.von - nun <= NAECHSTES_FENSTER_MS ? naechstes : null;
+  if (!laufend.length && !naechstesBald) return '';
+  return html`<section class="jetzt-kasten" aria-label="${t('zeitplan.jetzt_titel')}">
+    ${laufend.length
+      ? html`<span class="hinweis-label">${t('zeitplan.jetzt_titel')}</span><ul class="jetzt-liste">${laufend}</ul>`
+      : ''}
+    ${naechstesBald
+      ? html`<p class="jetzt-naechstes"><span class="hinweis-label">${t('zeitplan.als_naechstes')}</span>
+          <span><strong>${zeitMitTag(naechstesBald.von)}</strong> ${titelVon(naechstesBald)} (${relativ(naechstesBald.von, nun)})</span></p>`
+      : ''}
+    <span class="jetzt-hinweis">${t('status.laut_zeitplan')}</span>
   </section>`;
 }
 
@@ -80,7 +104,7 @@ function eintrag(z, wpImPlan, nun) {
 
 export const zeitplanAnsicht = {
   tab: 'zeitplan',
-  aktualisierenBei: ['status', 'plan', 'minute', 'sprache'],
+  aktualisierenBei: ['plan', 'minute', 'sprache'],
   render([tagParam]) {
     const d = zustand.daten;
     const tagId = d.tage.some((x) => x.id === tagParam) ? tagParam : standardTag();
@@ -90,7 +114,7 @@ export const zeitplanAnsicht = {
     return html`<div class="seite">
       ${seitenKopf(t('tab.zeitplan'), { unterzeile: t('allg.datenstand', { zeit: datumUndZeit(d.erstellt) }) })}
       ${tagReiter(tagId, 'zeitplan')}
-      ${meldungen()}
+      ${jetztKasten(nun)}
       ${naechsterPlanHinweis(tagId)}
       <div class="zeilen">${liste.length ? liste.map((z) => eintrag(z, wpImPlan, nun)) : leer(t('zeitplan.leer'))}</div>
     </div>`;

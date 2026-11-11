@@ -65,12 +65,28 @@ async function holen(url, signal) {
   return antwort;
 }
 
-/** Lädt den Kartenstil (aus dem Speicher oder dem Netz). Rückgabe null, wenn nicht verfügbar. */
-export async function stilLaden(stilUrl) {
+/**
+ * Lädt einen Kartenstil (aus dem Speicher oder dem Netz). Rückgabe null, wenn nicht verfügbar.
+ * @param {{frisch?: boolean}} optionen frisch: zuerst aus dem Netz (und Speicher aktualisieren), sonst Speicher
+ */
+export async function stilLaden(stilUrl, { frisch = false } = {}) {
   const ac = new AbortController();
   const timer = setTimeout(() => ac.abort(), 8000);
   try {
-    const stil = await (await holen(stilUrl, ac.signal)).json();
+    let antwort = null;
+    if (frisch && !kopfUrls.has(stilUrl) && navigator.onLine) {
+      try {
+        const r = await fetch(stilUrl, { signal: ac.signal, cache: 'no-cache' });
+        if (r.ok) {
+          antwort = r;
+          const c = await cache(KARTE_CACHE);
+          if (c) await c.put(stilUrl, r.clone()).catch(() => {});
+        }
+      } catch {
+        /* dann aus dem Speicher */
+      }
+    }
+    const stil = await (antwort ?? (await holen(stilUrl, ac.signal))).json();
     for (const q of Object.values(stil.sources || {})) if (q.url) kopfUrls.add(q.url);
     return stil;
   } catch {
@@ -135,6 +151,101 @@ export function speicherGrund() {
 let laeuft = false;
 
 /**
+ * Alle Dateien, die ein Kartenstil für die Region braucht: Kacheln (bis offlineMaxZoom), Schriften, Symbole.
+ * @param {(url: string) => Promise<Response>} tileJsonHolen lädt eine TileJSON-Datei
+ */
+async function stilDateien(stil, karte, tileJsonHolen) {
+  const quellen = [];
+  for (const q of Object.values(stil.sources || {})) {
+    if (!['vector', 'raster', 'raster-dem'].includes(q.type)) continue;
+    let tj = q;
+    if (q.url) {
+      tj = await (await tileJsonHolen(q.url)).json();
+      kopfUrls.add(q.url);
+    }
+    const vorlagen = (tj.tiles || []).filter((x) => typeof x === 'string');
+    if (!vorlagen.length) continue;
+    const min = tj.minzoom ?? 0;
+    const max = Math.min(tj.maxzoom ?? 22, karte.offlineMaxZoom ?? 14);
+    quellen.push({ vorlagen, min, max, schema: tj.scheme || 'xyz' });
+  }
+  const urls = [];
+  // Gleiche Auswahl der Server-Adresse wie MapLibre: tiles[(x + y) % Anzahl]
+  for (const q of quellen) {
+    for (const k of kachelnFuerRegion(karte.region, q.min, q.max)) urls.push(kachelUrl(q.vorlagen[(k.x + k.y) % q.vorlagen.length], k, q.schema));
+  }
+  if (stil.glyphs) {
+    const stapel = new Set();
+    for (const ebene of stil.layers || []) {
+      const f = ebene.layout?.['text-font'];
+      if (Array.isArray(f) && f.length && f.every((x) => typeof x === 'string')) stapel.add(f.join(','));
+    }
+    for (const s of stapel) for (const b of SCHRIFT_BEREICHE) urls.push(stil.glyphs.replace('{fontstack}', s).replace('{range}', b));
+  }
+  urls.push(...spriteUrls(stil.sprite));
+  return { urls: [...new Set(urls)], quellen };
+}
+
+/**
+ * Lädt alle noch nicht gespeicherten Dateien (höchstens 4 gleichzeitig). Rückgabe: Anzahl Fehler.
+ * @param {(fertig: number, erster: boolean) => void} fortschritt
+ */
+async function fehlendeLaden(kacheln, urls, fortschritt = () => {}) {
+  const fehlend = [];
+  for (const u of urls) if (!(await kacheln.match(u, { ignoreVary: true }))) fehlend.push(u);
+  let fertig = urls.length - fehlend.length;
+  let fehler = 0;
+  fortschritt(fertig, true);
+  await parallel(fehlend, PARALLEL, async (u) => {
+    let ok = false;
+    for (let versuch = 0; versuch < 2 && !ok; versuch++) {
+      try {
+        const r = await fetch(u);
+        if (r.ok) {
+          await kacheln.put(u, r);
+          ok = true;
+        } else if (r.status === 404 || r.status === 204) {
+          ok = true; // leere Kachel – nichts zu speichern
+        }
+      } catch {
+        /* nochmal versuchen */
+      }
+    }
+    if (!ok) fehler++;
+    fertig++;
+    fortschritt(fertig);
+  });
+  return fehler;
+}
+
+/** Ist eine weitere Kartenansicht (nicht der Standard) vollständig offline gespeichert? */
+export function stilOffline(stilUrl) {
+  return Boolean(lesen('stilOffline', {})[stilUrl]);
+}
+
+/**
+ * Speichert eine weitere Kartenansicht für offline. Die OpenFreeMap-Stile teilen sich Kacheln,
+ * Schriften und Symbole mit dem Standard – meist fehlt nur die Stil-Datei selbst.
+ */
+export async function stilVorladen(stilUrl, karte) {
+  if (!navigator.onLine || stilUrl === karte.stil) return false;
+  const kacheln = await cache(KARTE_CACHE);
+  if (!kacheln) return false;
+  try {
+    const stil = await stilLaden(stilUrl, { frisch: true });
+    if (!stil) return false;
+    const { urls } = await stilDateien(stil, karte, (url) => holen(url));
+    const fehler = await fehlendeLaden(kacheln, urls);
+    if (fehler > 0) return false;
+    schreiben('stilOffline', { ...lesen('stilOffline', {}), [stilUrl]: true });
+    melden('karteOffline');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Lädt alle Kacheln der Region (bis offlineMaxZoom), Schriften und Symbole in den Speicher.
  * Erst wenn alles vollständig ist, wird der neue Kartenstil/TileJSON als „aktiv“ übernommen.
  */
@@ -158,64 +269,16 @@ export async function regionVorladen(karte) {
     if (!stilAntwort.ok) throw new Error(`Kartenstil: HTTP ${stilAntwort.status}`);
     const stil = await stilAntwort.clone().json();
     neuKopf.push([karte.stil, stilAntwort]);
-    const quellen = [];
-    for (const q of Object.values(stil.sources || {})) {
-      if (!['vector', 'raster', 'raster-dem'].includes(q.type)) continue;
-      let tj = q;
-      if (q.url) {
-        const a = await fetch(q.url, { cache: 'no-cache' });
-        if (!a.ok) throw new Error(`TileJSON: HTTP ${a.status}`);
-        tj = await a.clone().json();
-        neuKopf.push([q.url, a]);
-        kopfUrls.add(q.url);
-      }
-      const vorlagen = (tj.tiles || []).filter((x) => typeof x === 'string');
-      if (!vorlagen.length) continue;
-      const min = tj.minzoom ?? 0;
-      const max = Math.min(tj.maxzoom ?? 22, karte.offlineMaxZoom ?? 14);
-      quellen.push({ vorlagen, min, max, schema: tj.scheme || 'xyz' });
-    }
+    const { urls, quellen } = await stilDateien(stil, karte, async (url) => {
+      const a = await fetch(url, { cache: 'no-cache' });
+      if (!a.ok) throw new Error(`TileJSON: HTTP ${a.status}`);
+      neuKopf.push([url, a.clone()]);
+      return a;
+    });
 
-    // 2. Liste aller benötigten Dateien
-    const urls = [];
-    // Gleiche Auswahl der Server-Adresse wie MapLibre: tiles[(x + y) % Anzahl]
-    for (const q of quellen) {
-      for (const k of kachelnFuerRegion(karte.region, q.min, q.max)) urls.push(kachelUrl(q.vorlagen[(k.x + k.y) % q.vorlagen.length], k, q.schema));
-    }
-    if (stil.glyphs) {
-      const stapel = new Set();
-      for (const ebene of stil.layers || []) {
-        const f = ebene.layout?.['text-font'];
-        if (Array.isArray(f) && f.length && f.every((x) => typeof x === 'string')) stapel.add(f.join(','));
-      }
-      for (const s of stapel) for (const b of SCHRIFT_BEREICHE) urls.push(stil.glyphs.replace('{fontstack}', s).replace('{range}', b));
-    }
-    urls.push(...spriteUrls(stil.sprite));
-
-    // 3. Fehlende Dateien laden
-    const fehlend = [];
-    for (const u of urls) if (!(await kacheln.match(u, { ignoreVary: true }))) fehlend.push(u);
-    let fertig = urls.length - fehlend.length;
-    let fehler = 0;
-    setzeStatus('laedt', fertig, urls.length);
-    await parallel(fehlend, PARALLEL, async (u) => {
-      let ok = false;
-      for (let versuch = 0; versuch < 2 && !ok; versuch++) {
-        try {
-          const r = await fetch(u);
-          if (r.ok) {
-            await kacheln.put(u, r);
-            ok = true;
-          } else if (r.status === 404 || r.status === 204) {
-            ok = true; // leere Kachel – nichts zu speichern
-          }
-        } catch {
-          /* nochmal versuchen */
-        }
-      }
-      if (!ok) fehler++;
-      fertig++;
-      if (fertig % 10 === 0 || fertig === urls.length) setzeStatus('laedt', fertig, urls.length);
+    // 2. Fehlende Dateien laden
+    const fehler = await fehlendeLaden(kacheln, urls, (fertig, erster) => {
+      if (erster || fertig % 10 === 0 || fertig === urls.length) setzeStatus('laedt', fertig, urls.length);
     });
 
     if (fehler > 0) {
@@ -223,7 +286,7 @@ export async function regionVorladen(karte) {
       return;
     }
 
-    // 4. Neue Kopf-Ressourcen aktivieren und Kacheln alter Kartenversionen löschen
+    // 3. Neue Kopf-Ressourcen aktivieren und Kacheln alter Kartenversionen löschen
     for (const [u, a] of neuKopf) await kopf.put(u, a);
     const aktuellePraefixe = quellen.flatMap((q) => q.vorlagen.map((v) => v.slice(0, v.indexOf('{'))));
     for (const anfrage of await kacheln.keys()) {
@@ -252,5 +315,6 @@ export async function karteNeuLaden(karte) {
     /* egal */
   }
   schreiben('karteOffline', undefined);
+  schreiben('stilOffline', undefined);
   await regionVorladen(karte);
 }

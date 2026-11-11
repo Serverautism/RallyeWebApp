@@ -13,7 +13,19 @@
     { "id": "sa", "datum": "2027-05-29", "name_de": "Samstag", "name_en": "Saturday" }
   ],
   "karte": {
-    "stil": "https://tiles.openfreemap.org/styles/positron",
+    "stile": [
+      { "id": "schlicht", "name_de": "Schlicht", "name_en": "Simple", "url": "https://tiles.openfreemap.org/styles/positron" },
+      { "id": "entdecken", "name_de": "Entdecken", "name_en": "Explore", "url": "https://tiles.openfreemap.org/styles/liberty" },
+      { "id": "strassen", "name_de": "Straßen", "name_en": "Roads", "url": "https://tiles.openfreemap.org/styles/bright" },
+      {
+        "id": "luftbild",
+        "name_de": "Luftbild",
+        "name_en": "Aerial",
+        "luftbild_wms": "https://www.geoproxy.geoportal-th.de/geoproxy/services/DOP",
+        "luftbild_ebene": "th_dop",
+        "quelle": "Luftbild © GDI-Th (CC BY 4.0)"
+      }
+    ],
     "mitte": null,
     "zoom": null,
     "region": [10.225, 50.915, 10.445, 51.025],
@@ -29,10 +41,6 @@
     "ziel": 5,
     "verweildauer_min": 5,
     "radius_m": 75
-  },
-  "status": {
-    "url": "status.json",
-    "abfrage_s": 60
   },
   "kontakt": {
     "notruf": "112",

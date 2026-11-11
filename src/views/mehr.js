@@ -10,6 +10,7 @@ import { stationen } from '../app/pass.js';
 import { standortLaeuft, standortStarten, standortStoppen, standortVerfuegbar } from '../app/position.js';
 import { tonVorbereiten, signalton, wachhalten, wachhaltenVerfuegbar, speicherBelegt } from '../app/geraet.js';
 import { karteNeuLaden } from '../app/basemap.js';
+import { appleGeraet, NAVI_WAHL } from '../app/navigation.js';
 import { seitenKopf } from './teile.js';
 
 let speicherText = '';
@@ -28,6 +29,20 @@ function link(href, symbol, titel, unter) {
     <span class="liste-text"><span class="liste-titel">${titel}</span>${unter ? html`<span class="liste-unter">${unter}</span>` : ''}</span>
     ${icon('weiter', 18, 'grau')}
   </a>`;
+}
+
+/** Nur auf Apple-Geräten: Apple Karten, Google Maps oder jedes Mal fragen */
+function naviWahl() {
+  const wahl = einstellung('navi', 'fragen');
+  return html`<div class="liste-zeile">
+    ${icon('navi', 22, 'akzent')}
+    <span class="liste-text"><span class="liste-titel">${t('mehr.navi')}</span></span>
+    <div class="segment mini drei" role="group" aria-label="${t('mehr.navi')}">
+      ${NAVI_WAHL.map(
+        (w) => html`<button type="button" class="segment-knopf ${wahl === w ? 'aktiv' : ''}" aria-pressed="${wahl === w ? 'true' : 'false'}" data-aktion="navi-wahl" data-id="${w}">${t(`mehr.navi_${w}`)}</button>`,
+      )}
+    </div>
+  </div>`;
 }
 
 function offlineKarte() {
@@ -103,6 +118,7 @@ export const mehrAnsicht = {
             <button type="button" class="segment-knopf ${sprache === 'en' ? 'aktiv' : ''}" aria-pressed="${sprache === 'en' ? 'true' : 'false'}" data-aktion="sprache" data-id="en">EN</button>
           </div>
         </div>
+        ${appleGeraet() ? naviWahl() : ''}
         ${standortVerfuegbar() ? schalter('standort', standortLaeuft(), t('mehr.standort'), t('mehr.standort_unter'), 'pin') : ''}
         ${schalter('ton', einstellung('ton', false), t('mehr.ton'), t('mehr.ton_unter'), 'ton')}
         ${wachhaltenVerfuegbar() ? schalter('wach', einstellung('wach', false), t('mehr.wach'), t('mehr.wach_unter'), 'bildschirm') : ''}
@@ -120,7 +136,10 @@ export const mehrAnsicht = {
         <a href="#/seite/datenschutz">${t('mehr.datenschutz')}</a>
         <a href="#/seite/impressum">${t('mehr.impressum')}</a>
       </nav>
-      <p class="klein mittig">${t('mehr.kartendaten')}</p>
+      <p class="klein mittig">${t('mehr.kartendaten')}${d.karte.stile
+        .filter((x) => x.luftbild?.quelle)
+        .map((x) => ` · ${x.luftbild.quelle}`)
+        .join('')}</p>
     </div>`;
   },
   nachRender() {
@@ -155,6 +174,9 @@ export const mehrAnsicht = {
         wachhalten(an);
         einstellungSetzen('wach', an);
       }
+    },
+    'navi-wahl'(el) {
+      einstellungSetzen('navi', el.dataset.id);
     },
     pruefen() {
       window.dispatchEvent(new CustomEvent('rw-pruefen', { detail: { manuell: true } }));

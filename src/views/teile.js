@@ -4,10 +4,10 @@ import { html } from '../app/html.js';
 import { icon } from '../app/icons.js';
 import { t, feld } from '../app/i18n.js';
 import { zustand } from '../app/zustand.js';
-import { tagIdVon, zeit, zeitMitTag, wpKurz } from '../app/format.js';
+import { tagIdVon, zeit, zeitMitTag, wpKurz, relativ } from '../app/format.js';
 import { jetzt } from '../app/uhr.js';
-import { wpStatus } from '../app/status.js';
-import { sperrIntervalle, naechsteSperrung, sperrungZu } from '../lib/planer.js';
+import { sperrIntervalle, naechsteSperrung, sperrungZu, wpZeitStatus } from '../lib/planer.js';
+import { navigationsHref } from '../app/navigation.js';
 
 export function seitenKopf(titel, { ueberzeile = null, zurueck = null, unterzeile = null } = {}) {
   const d = zustand.daten;
@@ -36,23 +36,37 @@ export function tagReiter(aktiv, basis) {
 }
 
 const STATUS_KLASSE = {
+  gesperrt: 'orange',
   laeuft: 'gruen',
-  verzoegert: 'orange',
-  unterbrochen: 'rot',
-  abgesagt: 'rot',
   beendet: 'grau',
 };
 
-/** Kleine Plakette mit dem Live-Status einer WP (nichts, wenn „geplant“). */
-export function statusPlakette(wpId, immer = false) {
-  const s = wpStatus(wpId);
-  if (s.status === 'geplant' && !immer) return '';
-  return html`<span class="plakette plakette-${STATUS_KLASSE[s.status] ?? 'grau'}">${t(`status.${s.status}`)}</span>`;
+/** Status einer WP laut Zeitplan, bezogen auf jetzt (siehe wpZeitStatus). */
+export function wpStatus(wpId) {
+  return wpZeitStatus(zustand.daten, wpId, jetzt()) ?? { status: 'geplant', ende: null };
 }
 
-export function statusHinweis(wpId) {
+/**
+ * Kleine Plakette mit dem Status einer WP laut Zeitplan (nichts, wenn „geplant“).
+ * @param {{mitWp?: boolean, ohneBeendet?: boolean}} optionen mitWp: „WP 4 · …“ voranstellen (wenn der Zusammenhang fehlt)
+ */
+export function statusPlakette(wpId, { mitWp = false, ohneBeendet = false } = {}) {
   const s = wpStatus(wpId);
-  const text = feld(s, 'hinweis');
+  if (s.status === 'geplant' || (ohneBeendet && s.status === 'beendet')) return '';
+  const text = t(`status.${s.status}`);
+  return html`<span class="plakette plakette-${STATUS_KLASSE[s.status]}" title="${t('status.laut_zeitplan')}">${mitWp ? `${wpKurz(zustand.daten.wp.get(wpId))} · ${text}` : text}</span>`;
+}
+
+/** Ergänzung zum Status: wann es losgeht, wann das letzte Auto durch ist, wie lange noch gesperrt ist. */
+export function statusHinweis(wpId) {
+  const d = zustand.daten;
+  const wp = d.wp.get(wpId);
+  const s = wpStatus(wpId);
+  const nun = jetzt();
+  let text = '';
+  if (s.status === 'gesperrt') text = t('status.hinweis_gesperrt', { rel: relativ(wp.erstesAuto, nun) });
+  else if (s.status === 'laeuft') text = t('status.hinweis_laeuft', { zeit: zeit(s.ende) });
+  else if (s.status === 'beendet' && nun < wp.sperrBis) text = t('status.hinweis_beendet', { zeit: zeit(wp.sperrBis) });
   return text ? html`<span class="status-hinweis">${text}</span>` : '';
 }
 
@@ -70,9 +84,12 @@ export function zufahrtText(ortId) {
   return { text: t('zufahrt.keine_mehr', { p: ortId }), art: 'neutral' };
 }
 
-export function navigationsLink(lage) {
-  const [lon, lat] = lage;
-  return `https://www.google.com/maps/dir/?api=1&destination=${lat.toFixed(5)},${lon.toFixed(5)}&travelmode=driving`;
+/**
+ * Knopf „Navigation …“. Der Klick läuft über die Aktion „navigation“ (Apple Karten oder Google Maps,
+ * siehe app/navigation.js); href bleibt für lange Drücken / Link kopieren.
+ */
+export function navigationsKnopf(lage, ziel, inhalt, klasse = 'knopf knopf-akzent') {
+  return html`<a class="${klasse}" href="${navigationsHref(lage)}" target="_blank" rel="noopener" data-aktion="navigation" data-lon="${lage[0]}" data-lat="${lage[1]}" data-ziel="${ziel}">${inhalt}</a>`;
 }
 
 export function wpListeText(strecke) {

@@ -4,9 +4,9 @@
 import { Map as MlKarte, Marker, setWorkerUrl, LngLatBounds } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
-import { grundkarteEinrichten, anfrageUmleiten, stilLaden, ersatzStil } from './basemap.js';
+import { grundkarteEinrichten, anfrageUmleiten, stilLaden, ersatzStil, stilVorladen, stilOffline } from './basemap.js';
 import { zustand, melden, abonnieren } from './zustand.js';
-import { lesen, schreiben } from './speicher.js';
+import { lesen, schreiben, lesenGlobal, schreibenGlobal } from './speicher.js';
 import { t, feld } from './i18n.js';
 import { esc } from './html.js';
 import { along, length, lineString } from '@turf/turf';
@@ -52,6 +52,85 @@ let positionMarker = null;
 let ausgewaehlt = null;
 
 export const karteObjekt = () => karte;
+
+// ---- Kartenansichten (Stile) ------------------------------------------------------
+// Die erste Ansicht aus einstellungen.json ist der Standard und wird offline gespeichert.
+// Weitere OpenFreeMap-Stile nutzen dieselben Kacheln; sie werden beim ersten Auswählen gespeichert.
+// Das Luftbild kommt direkt vom Landesdienst und ist nur mit Internet verfügbar.
+
+let aktiverStilId = null;
+
+export function kartenStile() {
+  const d = zustand.daten;
+  return d?.karte.stile?.length ? d.karte.stile : [{ id: 'standard', name_de: 'Standard', url: d?.karte.stil, luftbild: null }];
+}
+
+export const aktiverStil = () => kartenStile().find((s) => s.id === aktiverStilId) ?? kartenStile()[0];
+
+/** Kann die Ansicht jetzt gezeigt werden? (offline nur gespeicherte Stile, Luftbild nie) */
+export function stilVerfuegbar(stil) {
+  if (stil.luftbild) return zustand.online;
+  if (stil.url === zustand.daten.karte.stil) return true;
+  return zustand.online || stilOffline(stil.url);
+}
+
+/** Ist die Ansicht offline nutzbar? */
+export function stilOfflineNutzbar(stil) {
+  if (stil.luftbild) return false;
+  if (stil.url === zustand.daten.karte.stil) return zustand.karteOffline.phase === 'fertig';
+  return stilOffline(stil.url);
+}
+
+/** Luftbild (WMS des Landes) mit den Beschriftungen des Standard-Stils darüber („Hybrid“) */
+function luftbildStil(basis, lb) {
+  const px = (globalThis.devicePixelRatio || 1) > 1 ? 512 : 256;
+  const trenner = lb.wms.includes('?') ? '&' : '?';
+  const url = `${lb.wms}${trenner}SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=${encodeURIComponent(lb.ebene)}&STYLES=&CRS=EPSG:3857&BBOX={bbox-epsg-3857}&WIDTH=${px}&HEIGHT=${px}&FORMAT=image/jpeg`;
+  const stil = {
+    version: 8,
+    sources: { 'rw-luftbild': { type: 'raster', tiles: [url], tileSize: 256, maxzoom: 19, attribution: esc(lb.quelle) } },
+    layers: [
+      { id: 'luftbild-hintergrund', type: 'background', paint: { 'background-color': '#5b6650' } },
+      { id: 'luftbild', type: 'raster', source: 'rw-luftbild' },
+    ],
+  };
+  if (basis) {
+    if (basis.glyphs) stil.glyphs = basis.glyphs;
+    if (basis.sprite) stil.sprite = basis.sprite;
+    for (const [id, q] of Object.entries(basis.sources || {})) if (q.type === 'vector') stil.sources[id] = q;
+    for (const ebene of basis.layers || []) {
+      if (ebene.type !== 'symbol' || !ebene.layout?.['text-field'] || !stil.sources[ebene.source]) continue;
+      stil.layers.push({
+        ...ebene,
+        paint: { ...ebene.paint, 'text-color': '#ffffff', 'text-halo-color': 'rgba(0, 0, 0, 0.75)', 'text-halo-width': 1.4, 'text-halo-blur': 0.5 },
+      });
+    }
+  }
+  return stil;
+}
+
+async function stilAufbauen(stil, frisch = false) {
+  const d = zustand.daten;
+  if (stil.luftbild) return luftbildStil(await stilLaden(d.karte.stil), stil.luftbild);
+  return stilLaden(stil.url, { frisch: frisch && stil.url !== d.karte.stil });
+}
+
+/** Andere Kartenansicht wählen. Rückgabe: true, wenn gewechselt wurde. */
+export async function stilWaehlen(id) {
+  const d = zustand.daten;
+  const stil = kartenStile().find((s) => s.id === id);
+  if (!karte || !stil || !stilVerfuegbar(stil)) return false;
+  const neu = await stilAufbauen(stil, true);
+  if (!neu) return false;
+  karte.setStyle(neu, { diff: false });
+  aktiverStilId = stil.id;
+  schreibenGlobal('kartenstil', stil.id);
+  zustand.grundkarte = 'ok';
+  melden('grundkarte');
+  melden('kartenstil');
+  if (!stil.luftbild && stil.url !== d.karte.stil && !stilOffline(stil.url)) stilVorladen(stil.url, d.karte);
+  return true;
+}
 
 export function ebenenZustand() {
   return { ...STANDARD_EBENEN, ...lesen('ebenen', {}) };
@@ -258,16 +337,26 @@ export function zuPositionFliegen() {
   }
 }
 
+/** Freiraum für die Infokarte: unten (Handy) oder links schwebend (breite Kartenfläche, siehe main.js) */
+function blattRand() {
+  const breit = karte.getContainer().clientWidth >= 760;
+  // Alle vier Seiten angeben: flyTo merkt sich den Rand für spätere Kamerabewegungen
+  return breit
+    ? { punkt: { top: 120, bottom: 0, left: 400, right: 0 }, flaeche: { top: 140, bottom: 40, left: 420, right: 72 } }
+    : { punkt: { top: 0, bottom: 260, left: 0, right: 0 }, flaeche: { top: 120, bottom: 280, left: 40, right: 40 } };
+}
+
 export function zuObjektFliegen(auswahl) {
   const d = zustand.daten;
   if (!karte || !d || !auswahl) return;
-  if (auswahl.typ === 'zp') karte.flyTo({ center: d.zp.get(auswahl.id).mitte, zoom: Math.max(karte.getZoom(), 14.5), padding: { bottom: 260 } });
-  if (auswahl.typ === 'ort') karte.flyTo({ center: d.ort.get(auswahl.id).lage, zoom: Math.max(karte.getZoom(), 14), padding: { bottom: 260 } });
+  const rand = blattRand();
+  if (auswahl.typ === 'zp') karte.flyTo({ center: d.zp.get(auswahl.id).mitte, zoom: Math.max(karte.getZoom(), 14.5), padding: rand.punkt });
+  if (auswahl.typ === 'ort') karte.flyTo({ center: d.ort.get(auswahl.id).lage, zoom: Math.max(karte.getZoom(), 14), padding: rand.punkt });
   if (auswahl.typ === 'strecke') {
     const f = d.geo.strecken.features.find((x) => x.properties.id === auswahl.id);
     const b = new LngLatBounds();
     for (const k of f.geometry.coordinates) b.extend(k);
-    karte.fitBounds(b, { padding: { top: 120, bottom: 280, left: 40, right: 40 }, maxZoom: 14 });
+    karte.fitBounds(b, { padding: rand.flaeche, maxZoom: 14 });
   }
 }
 
@@ -296,7 +385,17 @@ export async function karteErzeugen(container, beiAuswahl) {
   const d = zustand.daten;
   aufAuswahl = beiAuswahl;
   grundkarteEinrichten(d.karte.stil);
-  const stil = await stilLaden(d.karte.stil);
+  // Zuletzt gewählte Ansicht – wenn sie gerade verfügbar ist, sonst der Standard
+  const gewaehlt = kartenStile().find((s) => s.id === lesenGlobal('kartenstil'));
+  let stil = null;
+  if (gewaehlt && gewaehlt.url !== d.karte.stil && stilVerfuegbar(gewaehlt)) {
+    stil = await stilAufbauen(gewaehlt);
+    if (stil) aktiverStilId = gewaehlt.id;
+  }
+  if (!stil) {
+    stil = await stilLaden(d.karte.stil);
+    aktiverStilId = kartenStile()[0].id;
+  }
   zustand.grundkarte = stil ? 'ok' : 'fehlt';
   melden('grundkarte');
   const optionen = {
@@ -371,13 +470,16 @@ export async function karteErzeugen(container, beiAuswahl) {
   // Grundkarte nachladen, sobald wieder Netz da ist
   window.addEventListener('online', async () => {
     if (zustand.grundkarte !== 'fehlt') return;
-    const neu = await stilLaden(d.karte.stil);
+    const neu = await stilAufbauen(aktiverStil());
     if (neu) {
       zustand.grundkarte = 'ok';
-      karte.setStyle(neu);
+      karte.setStyle(neu, { diff: false });
       melden('grundkarte');
     }
   });
+  // Gewählte weitere Ansicht im Hintergrund für offline speichern (bzw. auffrischen)
+  const a = aktiverStil();
+  if (!a.luftbild && a.url !== d.karte.stil && navigator.onLine) setTimeout(() => stilVorladen(a.url, d.karte), 3000);
   return true;
 }
 

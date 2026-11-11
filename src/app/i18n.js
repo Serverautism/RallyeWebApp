@@ -3,14 +3,16 @@
 import de from '../i18n/de.js';
 import en from '../i18n/en.js';
 import { lesenGlobal, schreibenGlobal } from './speicher.js';
+import { startSprache } from '../lib/sprache.js';
 
 export const SPRACHEN = { de, en };
 let sprache = 'de';
 
+/** Gespeicherte Wahl – sonst nach Systemsprache (Deutsch → Deutsch, andere → Englisch, unbekannt → Deutsch). */
 export function spracheEinrichten() {
   const gespeichert = lesenGlobal('sprache');
-  const browser = (navigator.language || 'de').slice(0, 2).toLowerCase();
-  sprache = gespeichert && SPRACHEN[gespeichert] ? gespeichert : SPRACHEN[browser] ? browser : 'de';
+  const system = navigator.languages?.length ? navigator.languages : [navigator.language].filter(Boolean);
+  sprache = gespeichert && SPRACHEN[gespeichert] ? gespeichert : startSprache(system);
   document.documentElement.lang = sprache;
 }
 

@@ -376,6 +376,52 @@ function inRegion([lon, lat], r) {
   return lon >= r[0] && lon <= r[2] && lat >= r[1] && lat <= r[3];
 }
 
+/**
+ * Kartenansichten aus „karte.stile“ prüfen. Die erste ist der Standard und wird offline gespeichert.
+ * Ältere Einstellungen mit nur „karte.stil“ (eine URL) werden weiter verstanden.
+ * @returns {{id, name_de, name_en, url, luftbild}[]}
+ */
+function kartenStilePruefen(karte, m, rel) {
+  let roh = karte.stile;
+  if (roh === undefined && karte.stil) roh = [{ id: 'standard', name_de: 'Standard', name_en: 'Standard', url: karte.stil }];
+  if (!Array.isArray(roh) || roh.length === 0) {
+    m.fehlerBei(rel, null, '„karte.stile“ fehlt: Liste der Kartenansichten, die erste mit „url“ zum Kartenstil (z. B. https://tiles.openfreemap.org/styles/positron).');
+    return [];
+  }
+  const ids = new Set();
+  const stile = [];
+  roh.forEach((s, i) => {
+    const wo = `„karte.stile“, Eintrag ${i + 1}`;
+    if (!s || typeof s !== 'object') {
+      m.fehlerBei(rel, null, `${wo}: muss ein Objekt mit „id“, „name_de“ und „url“ sein.`);
+      return;
+    }
+    if (!/^[a-z0-9_-]+$/.test(s.id ?? '')) m.fehlerBei(rel, null, `${wo}: „id“ fehlt oder enthält andere Zeichen als a–z, 0–9, _ und -.`);
+    else if (ids.has(s.id)) m.fehlerBei(rel, null, `${wo}: „id“ „${s.id}“ ist doppelt.`);
+    ids.add(s.id);
+    if (!s.name_de) m.fehlerBei(rel, null, `${wo}: „name_de“ fehlt.`);
+    const istLuftbild = Boolean(s.luftbild_wms);
+    if (istLuftbild === Boolean(s.url)) {
+      m.fehlerBei(rel, null, `${wo}: Genau eines von „url“ (Kartenstil) oder „luftbild_wms“ (Luftbild-Dienst) angeben.`);
+    }
+    if (s.url && !/^https:\/\//.test(s.url)) m.fehlerBei(rel, null, `${wo}: „url“ muss mit https:// beginnen.`);
+    if (istLuftbild) {
+      if (!/^https:\/\//.test(s.luftbild_wms)) m.fehlerBei(rel, null, `${wo}: „luftbild_wms“ muss mit https:// beginnen.`);
+      if (!s.luftbild_ebene) m.fehlerBei(rel, null, `${wo}: „luftbild_ebene“ (Name der WMS-Ebene, z. B. th_dop) fehlt.`);
+      if (!s.quelle) m.fehlerBei(rel, null, `${wo}: „quelle“ fehlt – Namensnennung des Luftbilds ist Pflicht (z. B. „© GDI-Th“).`);
+      if (i === 0) m.fehlerBei(rel, null, '„karte.stile“: Die erste Ansicht ist der Standard und wird offline gespeichert – sie muss ein Kartenstil mit „url“ sein, kein Luftbild.');
+    }
+    stile.push({
+      id: s.id,
+      name_de: s.name_de,
+      name_en: s.name_en || null,
+      url: s.url || null,
+      luftbild: istLuftbild ? { wms: s.luftbild_wms, ebene: s.luftbild_ebene, quelle: s.quelle || '' } : null,
+    });
+  });
+  return stile;
+}
+
 function kurzAusId(id) {
   const m = /(\d+)\s*$/.exec(id);
   return m ? m[1] : id;
@@ -431,12 +477,16 @@ export function datenBauen({ wurzel = PROJEKT, ausgabe, schreiben = true } = {})
     region[0] < region[2] &&
     region[1] < region[3];
   if (!regionOk) m.fehlerBei(einstRel, null, '„karte.region“ muss [West, Süd, Ost, Nord] in Grad sein, z. B. [10.2, 50.9, 10.5, 51.1].');
-  if (!karte.stil) m.fehlerBei(einstRel, null, '„karte.stil“ (URL des Kartenstils) fehlt.');
+  const stile = kartenStilePruefen(karte, m, einstRel);
+  const standardStil = stile[0]?.url ?? null;
+  if (e.status !== undefined) {
+    m.warnungBei(einstRel, null, '„status“ wird nicht mehr verwendet (es gibt keinen Live-Status, der Status kommt aus dem Zeitplan) – der Abschnitt kann gelöscht werden.');
+  }
   const maxZoom = karte.offline_max_zoom ?? 14;
   if (regionOk) {
     const n = anzahlKacheln(region, 0, maxZoom);
     zusammenfassung.push(`Offline-Region: ${n} Kacheln (Zoom 0–${maxZoom})`);
-    if (/openfreemap\.org/.test(karte.stil ?? '') && n > OPENFREEMAP_MAX_KACHELN) {
+    if (/openfreemap\.org/.test(standardStil ?? '') && n > OPENFREEMAP_MAX_KACHELN) {
       m.fehlerBei(einstRel, null, `Die Offline-Region umfasst ${n} Kacheln – OpenFreeMap erlaubt höchstens ${OPENFREEMAP_MAX_KACHELN} pro Download. Region verkleinern oder „offline_max_zoom“ senken.`);
     }
     if (Array.isArray(karte.mitte) && !inRegion(karte.mitte, region)) m.warnungBei(einstRel, null, '„karte.mitte“ liegt außerhalb von „karte.region“.');
@@ -851,7 +901,8 @@ export function datenBauen({ wurzel = PROJEKT, ausgabe, schreiben = true } = {})
     },
     tage: tage.map((t) => ({ id: t.id, datum: t.datum, name_de: t.name_de, name_en: t.name_en || null })),
     karte: {
-      stil: karte.stil,
+      stil: standardStil,
+      stile,
       mitte: karte.mitte ?? null,
       zoom: karte.zoom ?? null,
       region,
@@ -864,7 +915,6 @@ export function datenBauen({ wurzel = PROJEKT, ausgabe, schreiben = true } = {})
       verweildauerMin: e.zuschauerpass?.verweildauer_min ?? 5,
       radiusM: e.zuschauerpass?.radius_m ?? 75,
     },
-    status: { url: e.status?.url ?? 'status.json', abfrageS: e.status?.abfrage_s ?? 60 },
     kontakt: {
       notruf: e.kontakt?.notruf || '112',
       rallyeleitungTel: e.kontakt?.rallyeleitung_tel || null,

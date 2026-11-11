@@ -13,7 +13,7 @@ alles gründlich und meldet Fehler mit **Datei und Zeile**.
 
 | Datei | Inhalt | Bearbeiten mit |
 |---|---|---|
-| `einstellungen.json` | Name, Tage, Kartenausschnitt, Kontakt, Status-Adresse | Texteditor |
+| `einstellungen.json` | Name, Tage, Kartenausschnitt und -ansichten, Kontakt | Texteditor |
 | `karte/strecken.geojson` | WP-Strecken als Linien | geojson.io, uMap, QGIS |
 | `karte/zuschauerpunkte.geojson` | Zuschauerbereiche als Flächen | geojson.io, uMap, QGIS |
 | `karte/sperrzonen.geojson` | Sperrzonen als Flächen | geojson.io, uMap, QGIS |
@@ -143,39 +143,54 @@ Fehlende Paare meldet der Build als Hinweis. Tipp: vorab mit OSRM/GraphHopper be
 | `veranstaltung.zeitzone` | `Europe/Berlin` |
 | `veranstaltung.beispieldaten` | `true` zeigt den gelben Hinweis – für echte Daten `false` |
 | `tage` | Liste mit `id`, `datum` (JJJJ-MM-TT), `name_de`, `name_en` |
-| `karte.stil` | Kartenstil, Standard: OpenFreeMap „positron“ |
+| `karte.stile` | Kartenansichten zum Umschalten (siehe unten); die **erste** ist der Standard und wird offline gespeichert |
 | `karte.region` | [West, Süd, Ost, Nord] – dieser Ausschnitt wird **offline gespeichert** |
 | `karte.offline_max_zoom` | höchste gespeicherte Zoomstufe (14 = Maximum der Vektorkacheln) |
 | `karte.mitte`, `karte.zoom` | optional feste Startansicht; `null` = alles automatisch ins Bild |
 | `planer.startort` | Ort-ID, von dem der Tagesplaner losfahren lässt (z. B. Servicepark) |
 | `favoriten.vorwarnung_min` | wie viele Minuten vorher ein Favorit gemeldet wird |
 | `zuschauerpass.ziel`, `verweildauer_min`, `radius_m` | Stempel-Regeln |
-| `status.url`, `status.abfrage_s` | Adresse des Live-Status und Abfrage-Intervall |
 | `kontakt` | `notruf`, `rallyeleitung_tel`, `rallyebuero_tel`, `email`, `webseite` |
 | `starter_anzahl` | `null` = Anzahl aus `starter.csv`; sonst feste Zahl (wenn die Liste noch fehlt) |
 
 Die Offline-Region darf bei OpenFreeMap höchstens **3000 Kacheln** umfassen – der Build prüft das.
 
-## Live-Status (während der Rallye)
+## Kartenansichten (`karte.stile`)
 
-Der Status steht **nicht** in diesem Ordner, sondern in einer eigenen kleinen Datei
-(Standard: `public/status.json`, Adresse in `einstellungen.json → status.url`). So kann sie
-im Rallyebüro geändert werden, ohne die App neu zu bauen.
+Über das Ebenen-Symbol auf der Karte wählt man die Ansicht. Jeder Eintrag hat `id`, `name_de`,
+`name_en` und **entweder** `url` (Kartenstil) **oder** die Angaben für ein Luftbild:
+
+| Ansicht | Quelle | Offline |
+|---|---|---|
+| Schlicht (Standard) | OpenFreeMap „positron“ | ja – wird beim ersten Öffnen gespeichert |
+| Entdecken | OpenFreeMap „liberty“ | ja – sobald einmal ausgewählt (nutzt dieselben Kacheln) |
+| Straßen | OpenFreeMap „bright“ | ja – sobald einmal ausgewählt |
+| Luftbild | Digitale Orthophotos Thüringen (`luftbild_wms`, `luftbild_ebene`) | nein, nur mit Internet |
 
 ```json
-{
-  "stand": "2027-05-29T10:42:00+02:00",
-  "meldungen": [{ "zeit": "2027-05-29T10:40:00+02:00", "text_de": "WP 4 startet 15 min später.", "text_en": "SS 4 starts 15 min late.", "wichtig": true }],
-  "wp": { "WP4": { "status": "verzoegert", "hinweis_de": "Neuer Start 09:30", "hinweis_en": "New start 09:30" } }
-}
+{ "id": "luftbild", "name_de": "Luftbild", "name_en": "Aerial",
+  "luftbild_wms": "https://www.geoproxy.geoportal-th.de/geoproxy/services/DOP",
+  "luftbild_ebene": "th_dop", "quelle": "Luftbild © GDI-Th (CC BY 4.0)" }
 ```
 
-`status`: `geplant`, `laeuft`, `verzoegert`, `unterbrochen`, `abgesagt`, `beendet`.
+- Die Luftbilder des Landes Thüringen stehen unter **CC BY 4.0** – die Namensnennung (`quelle`)
+  ist Pflicht und erscheint auf der Karte und unter „Mehr“.
+- Über das Luftbild legt die App die Orts- und Straßennamen des Standard-Stils.
+- Weitere Stile vom selben Anbieter wie der Standard werden offline gespeichert, andere nicht.
+- Eine Verkehrslage (Staus) gibt es bei keinem freien Anbieter – die Sperrzeiten stehen im Zeitplan.
+- Ältere Einstellungen mit nur `"stil": "https://…"` funktionieren weiter (eine Ansicht, ohne Auswahl).
 
-Alternativ eine **Google-Tabelle** mit den Spalten `wp; status; hinweis_de; hinweis_en; wichtig`
-über „Datei → Freigeben → Im Web veröffentlichen → CSV“ veröffentlichen und deren Adresse als
-`status.url` eintragen. Zeilen mit `wp` = `MELDUNG` werden als Meldung angezeigt.
+## Status der Wertungsprüfungen
 
-> GitHub Pages speichert Dateien bis zu 10 Minuten zwischen. Für einen schnellen Status die Datei
-> daher bei einem Hoster ablegen, bei dem du die Cache-Zeit einstellen kannst (siehe `public/.htaccess`),
-> oder die Google-Tabelle nutzen.
+Es gibt **keinen Live-Status** – niemand muss am Renntag etwas pflegen. Die App leitet den
+Status jeder WP aus dem Zeitplan ab:
+
+| Status | Zeitraum |
+|---|---|
+| (geplant, ohne Anzeige) | vor `sperrung_von` |
+| Straßen gesperrt | `sperrung_von` bis `erstes_auto` |
+| Läuft | `erstes_auto` bis zum geschätzten letzten Auto im Ziel (Starterzahl × `intervall_min` + Länge ÷ `schnitt_kmh`), höchstens bis `sperrung_bis` |
+| Beendet | danach (bis `sperrung_bis` mit dem Hinweis „Straßen noch gesperrt“) |
+
+Im Zeitplan fasst der Kasten „Jetzt laut Zeitplan“ zusammen, was gerade läuft und was als
+Nächstes kommt. Die App weist darauf hin, dass es vor Ort Verzögerungen geben kann.

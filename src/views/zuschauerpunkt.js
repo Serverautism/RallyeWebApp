@@ -10,7 +10,7 @@ import { basisUrl } from '../app/datenlader.js';
 import { imPlan, planUmschalten } from '../app/meine.js';
 import { toast } from '../app/toast.js';
 import { durchfahrt, sperrIntervalle, spaetesteDurchfahrt } from '../lib/planer.js';
-import { navigationsLink, statusPlakette, statusHinweis, leer } from './teile.js';
+import { navigationsKnopf, statusPlakette, statusHinweis, leer } from './teile.js';
 
 const JA_NEIN = { ja: 'allg.ja', nein: 'allg.nein', teilweise: 'allg.teilweise' };
 
@@ -50,7 +50,7 @@ function abfahrtHinweis(zp) {
 
 export const zuschauerpunktAnsicht = {
   tab: 'karte',
-  aktualisierenBei: ['status', 'plan', 'minute', 'sprache'],
+  aktualisierenBei: ['plan', 'minute', 'sprache'],
   render([id]) {
     const d = zustand.daten;
     const zp = d.zp.get(id);
@@ -92,7 +92,7 @@ export const zuschauerpunktAnsicht = {
               const drin = imPlan(zp.id, wid);
               return html`<div class="tabelle-zeile">
                 <div class="tabelle-haupt">
-                  <strong>${wpKurz(w)}</strong> ${statusPlakette(wid)}
+                  <span class="tabelle-titel"><strong>${wpKurz(w)}</strong> ${statusPlakette(wid)}</span>
                   <span>${t('zp.erstes_auto_um', { zeit: zeitMitTag(df.erster) })}</span>
                   <span class="klein">${t('zp.letztes_auto_um', { zeit: zeit(df.letzter) })} · ${t('zp.gesperrt', { von: zeit(w.sperrVon), bis: zeit(w.sperrBis) })}</span>
                   ${statusHinweis(wid)}
@@ -106,7 +106,7 @@ export const zuschauerpunktAnsicht = {
           ${blockiert ? html`<p class="klein">${t('zp.parkplatz_blockiert', { p: p.id })}</p>` : ''}
         </section>
         <div class="knopf-spalte">
-          <a class="knopf knopf-akzent gross" href="${navigationsLink(p.lage)}" target="_blank" rel="noopener">${icon('navi', 20)} ${t('allg.navigation_zu', { ziel: `${p.id} · ${feld(p, 'name')}` })}</a>
+          ${navigationsKnopf(p.lage, `${p.id} · ${feld(p, 'name')}`, html`${icon('navi', 20)} ${t('allg.navigation_zu', { ziel: `${p.id} · ${feld(p, 'name')}` })}`, 'knopf knopf-akzent gross')}
           <a class="knopf knopf-rahmen gross" href="#/karte/zp/${zp.id}">${icon('karte', 20)} ${t('zp.auf_karte')}</a>
         </div>
       </div>

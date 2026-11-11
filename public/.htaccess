@@ -11,10 +11,6 @@
   <FilesMatch "^(index\.html|sw\.js|manifest\.json|manifest\.webmanifest)$">
     Header set Cache-Control "no-cache"
   </FilesMatch>
-  # Live-Status höchstens 15 Sekunden zwischenspeichern
-  <Files "status.json">
-    Header set Cache-Control "public, max-age=15"
-  </Files>
 </IfModule>
 <IfModule mod_mime.c>
   AddType application/manifest+json .webmanifest

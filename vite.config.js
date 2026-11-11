@@ -94,7 +94,7 @@ function serviceWorkerPlugin() {
           if (eintrag.isDirectory()) {
             if (r === 'daten') continue; // Daten verwaltet die App selbst (eigene Versionen)
             sammeln(path.join(ordner, eintrag.name), r);
-          } else if (!['sw.js', 'status.json'].includes(r) && !r.endsWith('.map') && !r.endsWith('.woff')) {
+          } else if (r !== 'sw.js' && !r.endsWith('.map') && !r.endsWith('.woff')) {
             // .woff wird nicht vorgeladen: alle Browser mit Service Worker nutzen .woff2
             dateien.push(r);
           }

@@ -5,10 +5,12 @@ import { icon } from '../app/icons.js';
 import { t, feld } from '../app/i18n.js';
 import { zustand } from '../app/zustand.js';
 import { zeitMitTag, zeit, km, wpKurz } from '../app/format.js';
-import { EBENEN, ebenenZustand, ebeneUmschalten, zoomen, zuPositionFliegen } from '../app/karte.js';
+import { EBENEN, ebenenZustand, ebeneUmschalten, zoomen, zuPositionFliegen, kartenStile, aktiverStil, stilVerfuegbar, stilOfflineNutzbar, stilWaehlen } from '../app/karte.js';
+import { melden } from '../app/zustand.js';
+import { toast } from '../app/toast.js';
 import { standortStarten, standortLaeuft, standortVerfuegbar } from '../app/position.js';
 import { durchfahrt, sperrIntervalle } from '../lib/planer.js';
-import { statusPlakette, zufahrtText, navigationsLink, wpListeText } from './teile.js';
+import { statusPlakette, zufahrtText, navigationsKnopf, wpListeText } from './teile.js';
 
 function offlinePlakette() {
   const o = zustand.karteOffline;
@@ -58,11 +60,11 @@ function blattZp(id) {
       <span class="chip-info">${icon('gehen', 15)} ${t('zp.fussweg_ab', { min: zp.fusswegMin, p: p?.id ?? '' })}</span>
       ${feld(zp, 'untergrund') ? html`<span class="chip-info">${feld(zp, 'untergrund')}</span>` : ''}
       <span class="chip-info ${z.art === 'warnung' ? 'chip-warnung' : ''}">${z.text}</span>
-      ${s.wps.map((w) => statusPlakette(w))}
+      ${s.wps.map((w) => statusPlakette(w, { mitWp: true, ohneBeendet: true }))}
     </div>
     <div class="knopf-reihe">
       <a class="knopf knopf-dunkel" href="#/zp/${zp.id}">${t('zp.steckbrief')}</a>
-      ${p ? html`<a class="knopf knopf-akzent" href="${navigationsLink(p.lage)}" target="_blank" rel="noopener">${t('allg.navigation_zu', { ziel: p.id })}</a>` : ''}
+      ${p ? navigationsKnopf(p.lage, `${p.id} · ${feld(p, 'name')}`, t('allg.navigation_zu', { ziel: p.id })) : ''}
     </div>`;
 }
 
@@ -91,7 +93,7 @@ function blattOrt(id) {
       ? html`<div class="chips-zeile">${zps.map((z) => html`<a class="chip-info chip-link" href="#/karte/zp/${z.id}" data-ersetzen>${t('zp.abk')} ${z.kurz} · ${feld(z, 'name')}</a>`)}</div>`
       : ''}
     <div class="knopf-reihe">
-      <a class="knopf knopf-akzent" href="${navigationsLink(o.lage)}" target="_blank" rel="noopener">${t('allg.navigation')}</a>
+      ${navigationsKnopf(o.lage, feld(o, 'name'), t('allg.navigation'))}
     </div>`;
 }
 
@@ -147,7 +149,32 @@ function blatt(auswahl) {
   </section>`;
 }
 
+// ---- Auswahl der Kartenansicht --------------------------------------------------
+let stilWahlOffen = false;
+
+function stilWahl() {
+  const stile = kartenStile();
+  if (!stilWahlOffen || stile.length < 2) return '';
+  const aktiv = aktiverStil();
+  return html`<section class="stil-wahl" aria-label="${t('karte.ansicht')}">
+    <div class="stil-kopf"><strong>${t('karte.ansicht')}</strong>
+      <button type="button" class="blatt-zu" data-aktion="stil-menue" aria-label="${t('allg.schliessen')}">${icon('kreuzX', 18)}</button></div>
+    <div class="stil-raster">
+      ${stile.map((s) => {
+        const geht = stilVerfuegbar(s);
+        const unter = s.luftbild ? t('karte.stil_nur_online') : !geht ? t('karte.stil_offline_nicht') : stilOfflineNutzbar(s) ? t('karte.stil_auch_offline') : '';
+        return html`<button type="button" class="stil-option ${s.id === aktiv.id ? 'aktiv' : ''}" data-aktion="stil" data-id="${s.id}" aria-pressed="${s.id === aktiv.id ? 'true' : 'false'}" ${geht ? '' : 'disabled'}>
+          <span class="stil-bild stil-bild-${s.luftbild ? 'luftbild' : s.id}" aria-hidden="true"></span>
+          <span class="stil-name">${feld(s, 'name')}</span>
+          ${unter ? html`<span class="stil-unter">${unter}</span>` : ''}
+        </button>`;
+      })}
+    </div>
+  </section>`;
+}
+
 function hinweisGrundkarte() {
+  if (aktiverStil().luftbild && !zustand.online) return html`<div class="karten-hinweis">${icon('offline', 18)} ${t('karte.luftbild_offline')}</div>`;
   if (zustand.grundkarte === 'fehlt') return html`<div class="karten-hinweis">${icon('info', 18)} ${t('karte.ohne_grundkarte')}</div>`;
   if (zustand.grundkarte === 'keinWebgl')
     return html`<div class="karten-hinweis karten-hinweis-gross">${icon('warnung', 18)} ${t('karte.kein_webgl')} <a href="#/zeitplan">${t('tab.zeitplan')}</a></div>`;
@@ -176,6 +203,9 @@ export function karteUi(auswahl) {
       ${hinweisGrundkarte()}
     </div>
     <div class="k-knoepfe ${auswahl ? 'mit-blatt' : ''}">
+      ${kartenStile().length > 1
+        ? html`<button type="button" class="k-knopf ${stilWahlOffen ? 'aktiv' : ''}" data-aktion="stil-menue" aria-expanded="${stilWahlOffen ? 'true' : 'false'}" aria-label="${t('karte.ansicht_waehlen')}" title="${t('karte.ansicht_waehlen')}">${icon('ebenen', 20)}</button>`
+        : ''}
       <button type="button" class="k-knopf" data-aktion="zoom" data-richtung="1" aria-label="${t('karte.reinzoomen')}">${icon('plus', 20)}</button>
       <button type="button" class="k-knopf" data-aktion="zoom" data-richtung="-1" aria-label="${t('karte.rauszoomen')}">${icon('minus', 20)}</button>
       ${standortVerfuegbar()
@@ -183,11 +213,24 @@ export function karteUi(auswahl) {
         : ''}
     </div>
     ${zustand.positionFehler === 1 ? html`<div class="karten-hinweis unten">${t('position.verweigert')}</div>` : ''}
+    ${stilWahl()}
     ${blatt(auswahl)}`;
 }
 
 export const karteAktionen = {
   ebene: (el) => ebeneUmschalten(el.dataset.id),
+  'stil-menue': () => {
+    stilWahlOffen = !stilWahlOffen;
+    melden('kartenstil');
+  },
+  stil: async (el) => {
+    if (el.dataset.id !== aktiverStil().id) {
+      const ok = await stilWaehlen(el.dataset.id);
+      if (!ok) toast(t('karte.stil_fehler'));
+    }
+    stilWahlOffen = false;
+    melden('kartenstil');
+  },
   zoom: (el) => zoomen(Number(el.dataset.richtung)),
   orten: () => {
     if (!standortLaeuft()) standortStarten();

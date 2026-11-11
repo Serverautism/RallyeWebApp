@@ -11,7 +11,6 @@ import { toast } from '../app/toast.js';
 import { alternativen, durchfahrt } from '../lib/planer.js';
 import { icsErzeugen } from '../lib/ics.js';
 import { seitenKopf, tagReiter, standardTag, statusPlakette } from './teile.js';
-import { wpStatus } from '../app/status.js';
 
 function zpName(zpId) {
   const zp = zustand.daten.zp.get(zpId);
@@ -19,7 +18,6 @@ function zpName(zpId) {
 }
 
 function machbarPlakette(s, nun) {
-  if (wpStatus(s.wp).status === 'abgesagt') return html`<span class="plakette plakette-rot">${t('status.abgesagt')}</span>`;
   if (s.machbar === false) return html`<span class="plakette plakette-rot">${icon('kreuzX', 13)} ${t('planer.nicht_erreichbar')}</span>`;
   if (s.machbar === null) return html`<span class="plakette plakette-orange">${t('planer.fahrzeit_unbekannt')}</span>`;
   if (s.abfahrtSpaetestens) {
@@ -148,7 +146,7 @@ function icsHerunterladen(tagId) {
 
 export const planerAnsicht = {
   tab: 'planer',
-  aktualisierenBei: ['plan', 'status', 'minute', 'sprache'],
+  aktualisierenBei: ['plan', 'minute', 'sprache'],
   render([tagParam]) {
     const d = zustand.daten;
     const tagId = d.tage.some((x) => x.id === tagParam) ? tagParam : standardTag();

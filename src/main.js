@@ -16,13 +16,13 @@ import { praefixSetzen, lesen, lesenGlobal } from './app/speicher.js';
 import { manifestLaden, datenLaden, aufbereiten, aufraeumen } from './app/datenlader.js';
 import { uhrEinrichten, istDemo, demoBeenden, jetzt } from './app/uhr.js';
 import { zeitMitTag, datumUndZeit } from './app/format.js';
-import { statusStarten, statusJetztAbrufen } from './app/status.js';
 import { standortWiederherstellen } from './app/position.js';
 import { hinweiseStarten } from './app/hinweise.js';
 import { passStarten } from './app/pass.js';
 import { einstellung } from './app/meine.js';
 import { wachhalten, tonVorbereiten } from './app/geraet.js';
 import { toast } from './app/toast.js';
+import { navigationStarten } from './app/navigation.js';
 import { regionVorladen } from './app/basemap.js';
 import { karteErzeugen, auswahlSetzen, zuObjektFliegen, karteGroesseAnpassen, karteDatenAktualisieren } from './app/karte.js';
 import { karteUi, karteAktionen } from './views/karte.js';
@@ -46,9 +46,15 @@ const ANSICHTEN = {
   regeln: regelnAnsicht,
   seite: seiteAnsicht,
 };
-const KARTE_EREIGNISSE = ['karteOffline', 'ebenen', 'position', 'status', 'plan', 'grundkarte', 'minute', 'sprache', 'online'];
+const KARTE_EREIGNISSE = ['karteOffline', 'ebenen', 'kartenstil', 'position', 'plan', 'grundkarte', 'minute', 'sprache', 'online'];
+
+// Ab dieser Breite (Computer, großes Tablet quer) steht die Karte neben den Inhalten – zum Planen am Rechner
+const BREIT = window.matchMedia('(min-width: 1100px)');
+// Ab dieser Breite der Kartenfläche schwebt die Infokarte links statt unten über die ganze Breite
+const KARTE_BREIT_PX = 760;
 
 const el = {
+  app: document.getElementById('app'),
   kopf: document.getElementById('kopfleiste'),
   kartenAnsicht: document.getElementById('karten-ansicht'),
   karte: document.getElementById('karte'),
@@ -62,6 +68,10 @@ let navigationen = 0;
 let karteBereit = false;
 let karteWirdErzeugt = false;
 let letzteAuswahl = null;
+// Auswahl auf der Karte neben den Inhalten (geteilte Ansicht) – steht nicht in der Adresse
+let nebenAuswahl = null;
+
+const geteilt = () => BREIT.matches && route.name !== 'karte';
 
 // ---------------------------------------------------------------------------
 // Routen
@@ -72,14 +82,30 @@ function routeLesen() {
   return { name, params: teile.slice(1) };
 }
 
-function auswahlAusRoute() {
-  const [typ, id] = route.params;
+function gueltigeAuswahl(typ, id) {
   const d = zustand.daten;
   if (typ === 'zp' && d.zp.has(id)) return { typ, id };
   if (typ === 'ort' && d.ort.has(id)) return { typ, id };
   if (typ === 'strecke' && d.strecken.has(id)) return { typ, id };
   if (typ === 'sperrzone' && id) return { typ, id };
   return null;
+}
+
+function auswahlAusRoute() {
+  const [typ, id] = route.params;
+  return gueltigeAuswahl(typ, id);
+}
+
+/** Was die Infokarte über der Karte zeigt */
+function blattAuswahl() {
+  return route.name === 'karte' ? auswahlAusRoute() : nebenAuswahl;
+}
+
+/** Was auf der Karte hervorgehoben wird – im Steckbrief der Zuschauerpunkt selbst */
+function kartenMarkierung() {
+  const a = blattAuswahl();
+  if (a || route.name === 'karte') return a;
+  return route.name === 'zp' ? gueltigeAuswahl('zp', route.params[0]) : null;
 }
 
 function tabName() {
@@ -96,7 +122,7 @@ function tabbarZeichnen() {
   ];
   const aktiv = tabName();
   el.tabbar.innerHTML = String(
-    html`${tabs.map(
+    html`<img class="tab-marke" src="icons/favicon.svg" alt="" width="44" height="44">${tabs.map(
       ([id, sym, text]) => html`<a href="#/${id}" class="tab ${aktiv === id ? 'aktiv' : ''}" ${aktiv === id ? html`aria-current="page"` : ''}>${icon(sym, 22)}<span>${t(text)}</span></a>`,
     )}`,
   );
@@ -116,53 +142,88 @@ function kopfZeichnen() {
   el.kopf.innerHTML = String(html`${teile}`);
 }
 
+function karteUiZeichnen() {
+  const auswahl = blattAuswahl();
+  el.kartenUi.innerHTML = String(karteUi(auswahl));
+  const breit = el.kartenAnsicht.clientWidth >= KARTE_BREIT_PX;
+  el.kartenAnsicht.classList.toggle('flaeche-breit', breit);
+  const blatt = el.kartenUi.querySelector('.blatt');
+  el.kartenAnsicht.style.setProperty('--blatt-hoehe', blatt && !breit ? `${blatt.offsetHeight}px` : '0px');
+}
+
+/** Erzeugt die Karte beim ersten Anzeigen; danach Größe und Hervorhebung abgleichen. */
+function karteAbgleichen() {
+  const markierung = kartenMarkierung();
+  if (!karteBereit && !karteWirdErzeugt) {
+    karteWirdErzeugt = true;
+    karteErzeugen(el.karte, kartenAuswahl).then((ok) => {
+      karteBereit = ok;
+      karteWirdErzeugt = false;
+      if (ok) {
+        const a = kartenMarkierung();
+        auswahlSetzen(a);
+        if (a) zuObjektFliegen(a);
+        letzteAuswahl = a;
+        setTimeout(() => regionVorladen(zustand.daten.karte), 1500);
+      }
+      melden('grundkarte');
+    });
+  } else if (karteBereit) {
+    karteGroesseAnpassen();
+    if (JSON.stringify(markierung) !== JSON.stringify(letzteAuswahl)) {
+      auswahlSetzen(markierung);
+      if (markierung && markierung.typ !== 'sperrzone') zuObjektFliegen(markierung);
+      letzteAuswahl = markierung;
+    }
+  }
+}
+
+/** Klick auf der Karte: als Adresse (Vollbild-Karte) oder als Auswahl neben den Inhalten */
+function kartenAuswahl(a) {
+  if (route.name === 'karte') {
+    location.replace(a ? `#/karte/${a.typ}/${a.id}` : '#/karte');
+    return;
+  }
+  nebenAuswahlSetzen(a);
+}
+
+function nebenAuswahlSetzen(a) {
+  nebenAuswahl = a;
+  if (!geteilt()) return;
+  karteUiZeichnen();
+  karteAbgleichen();
+}
+
 function ansichtZeichnen({ scrollBehalten = false } = {}) {
   if (!zustand.daten) return;
+  const teilen = geteilt();
+  el.app.classList.toggle('geteilt', teilen);
   if (route.name === 'karte') {
     el.ansicht.hidden = true;
     el.ansicht.innerHTML = '';
     el.kartenAnsicht.hidden = false;
-    const auswahl = auswahlAusRoute();
-    el.kartenUi.innerHTML = String(karteUi(auswahl));
-    const blatt = el.kartenUi.querySelector('.blatt');
-    el.kartenAnsicht.style.setProperty('--blatt-hoehe', blatt ? `${blatt.offsetHeight}px` : '0px');
-    if (!karteBereit && !karteWirdErzeugt) {
-      karteWirdErzeugt = true;
-      karteErzeugen(el.karte, (a) => location.replace(a ? `#/karte/${a.typ}/${a.id}` : '#/karte')).then((ok) => {
-        karteBereit = ok;
-        karteWirdErzeugt = false;
-        if (ok) {
-          auswahlSetzen(auswahl);
-          if (auswahl) zuObjektFliegen(auswahl);
-          letzteAuswahl = auswahl;
-          setTimeout(() => regionVorladen(zustand.daten.karte), 1500);
-        }
-        melden('grundkarte');
-      });
-    } else if (karteBereit) {
-      karteGroesseAnpassen();
-      const neu = JSON.stringify(auswahl);
-      if (neu !== JSON.stringify(letzteAuswahl)) {
-        auswahlSetzen(auswahl);
-        if (auswahl && auswahl.typ !== 'sperrzone') zuObjektFliegen(auswahl);
-        letzteAuswahl = auswahl;
-      }
-    }
+    karteUiZeichnen();
+    karteAbgleichen();
     return;
   }
   const ansicht = ANSICHTEN[route.name];
-  el.kartenAnsicht.hidden = true;
+  el.kartenAnsicht.hidden = !teilen;
   el.ansicht.hidden = false;
   const scroll = scrollBehalten ? el.ansicht.scrollTop : 0;
   el.ansicht.innerHTML = String(ansicht.render(route.params));
   el.ansicht.scrollTop = scroll;
   ansicht.nachRender?.(el.ansicht, route.params);
+  if (teilen) {
+    karteUiZeichnen();
+    karteAbgleichen();
+  }
 }
 
 function routeWechseln() {
   const neu = routeLesen();
   const gleicheSeite = neu.name === route.name && JSON.stringify(neu.params) === JSON.stringify(route.params);
   route = neu;
+  if (!gleicheSeite) nebenAuswahl = null;
   tabbarZeichnen();
   ansichtZeichnen({ scrollBehalten: gleicheSeite });
   if (!gleicheSeite && route.name !== 'karte') el.ansicht.focus({ preventScroll: true });
@@ -181,7 +242,11 @@ const GLOBALE_AKTIONEN = {
     else location.hash = ziel.getAttribute('href') || '#/karte';
   },
   'auswahl-weg'() {
-    location.replace('#/karte');
+    if (route.name === 'karte') location.replace('#/karte');
+    else nebenAuswahlSetzen(null);
+  },
+  navigation(ziel) {
+    navigationStarten([Number(ziel.dataset.lon), Number(ziel.dataset.lat)], ziel.dataset.ziel || '');
   },
   'demo-ende'() {
     demoBeenden();
@@ -198,6 +263,17 @@ const GLOBALE_AKTIONEN = {
 
 document.addEventListener('click', (ev) => {
   tonVorbereiten();
+  // Geteilte Ansicht: Links „auf der Karte zeigen“ wählen das Objekt auf der Karte daneben aus
+  const kartenLink = ev.target.closest('a[href^="#/karte/"]:not([data-aktion])');
+  if (kartenLink && geteilt()) {
+    const [typ, id] = kartenLink.getAttribute('href').split('/').slice(2).map(decodeURIComponent);
+    const a = gueltigeAuswahl(typ, id);
+    if (a) {
+      ev.preventDefault();
+      nebenAuswahlSetzen(a);
+      return;
+    }
+  }
   const ziel = ev.target.closest('[data-aktion], a[data-ersetzen]');
   if (!ziel) return;
   if (ziel.matches('a[data-ersetzen]') && !ziel.dataset.aktion) {
@@ -206,8 +282,9 @@ document.addEventListener('click', (ev) => {
     return;
   }
   const name = ziel.dataset.aktion;
-  const ansicht = route.name === 'karte' ? null : ANSICHTEN[route.name];
-  const fn = ansicht?.aktionen?.[name] ?? (route.name === 'karte' ? karteAktionen[name] : null) ?? GLOBALE_AKTIONEN[name];
+  const inKarte = route.name === 'karte' || el.kartenUi.contains(ziel);
+  const ansicht = inKarte ? null : ANSICHTEN[route.name];
+  const fn = (inKarte ? karteAktionen[name] : ansicht?.aktionen?.[name]) ?? GLOBALE_AKTIONEN[name];
   if (!fn) return;
   if (ziel.tagName === 'A' && name !== 'zurueck') ev.preventDefault();
   fn(ziel, ev, el.ansicht, ansicht);
@@ -235,6 +312,7 @@ abonnieren((was) => {
     if (KARTE_EREIGNISSE.includes(was)) ansichtZeichnen();
     return;
   }
+  if (geteilt() && KARTE_EREIGNISSE.includes(was)) karteUiZeichnen();
   const ansicht = ANSICHTEN[route.name];
   if (ansicht.teilweiseBei?.includes(was)) ansicht.teilweise(el.ansicht, ansicht);
   else if (ansicht.aktualisierenBei?.includes(was)) ansichtZeichnen({ scrollBehalten: true });
@@ -248,7 +326,6 @@ let letztePruefung = Date.now();
 async function aufUpdatesPruefen(manuell = false) {
   letztePruefung = Date.now();
   swRegistrierung?.update().catch(() => {});
-  statusJetztAbrufen();
   const { manifest, ausNetz } = await manifestLaden();
   if (!ausNetz) {
     if (manuell) toast(t('update.offline'));
@@ -362,10 +439,21 @@ async function starten() {
     if (document.visibilityState === 'visible' && Date.now() - letztePruefung > 15 * 60000) aufUpdatesPruefen();
   });
   setInterval(() => melden('minute'), 30000);
+  // Fensterbreite: geteilte Ansicht an/aus, Infokarte unten oder schwebend
+  BREIT.addEventListener('change', () => ansichtZeichnen({ scrollBehalten: true }));
+  let groesseGeplant = false;
+  window.addEventListener('resize', () => {
+    if (groesseGeplant || el.kartenAnsicht.hidden) return;
+    groesseGeplant = true;
+    requestAnimationFrame(() => {
+      groesseGeplant = false;
+      const breit = el.kartenAnsicht.clientWidth >= KARTE_BREIT_PX;
+      if (breit !== el.kartenAnsicht.classList.contains('flaeche-breit')) karteUiZeichnen();
+    });
+  });
 
   kopfZeichnen();
   routeWechseln();
-  statusStarten(d);
   hinweiseStarten();
   passStarten();
   standortWiederherstellen();

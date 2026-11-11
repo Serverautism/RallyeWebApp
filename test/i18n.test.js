@@ -29,7 +29,8 @@ test('Alle im Code verwendeten Texte existieren', () => {
     for (const m of text.matchAll(/\bt\('([a-z_.0-9]+)'/g)) benutzt.add(m[1]);
   }
   // dynamisch zusammengesetzte Schlüssel
-  for (const s of ['geplant', 'laeuft', 'verzoegert', 'unterbrochen', 'abgesagt', 'beendet']) benutzt.add(`status.${s}`);
+  for (const s of ['gesperrt', 'laeuft', 'beendet']) benutzt.add(`status.${s}`);
+  for (const w of ['fragen', 'apple', 'google']) benutzt.add(`mehr.navi_${w}`);
   for (const o of ['parkplatz', 'servicepark', 'rampe', 'info', 'wc', 'imbiss', 'sanitaeter', 'shuttle', 'sonstiges']) benutzt.add(`ort.${o}`);
   for (const n of [1, 2, 3, 4]) benutzt.add(`notfall.schritt${n}`);
   for (const s of ['gesperrt', 'umleitung', 'teilweise', 'frei']) benutzt.add(`anwohner.status_${s}`);

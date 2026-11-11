@@ -10,7 +10,6 @@ import { t, feld } from './i18n.js';
 import { wpKurz, zeit } from './format.js';
 import { toast } from './toast.js';
 import { signalton, vibrieren } from './geraet.js';
-import { wpStatus } from './status.js';
 
 const NAH_M = 400; // so nah muss man an einem Zuschauerpunkt sein, damit er ohne Plan zählt
 
@@ -31,7 +30,7 @@ export function relevanteDurchfahrten() {
       }
     }
   }
-  return liste.filter((e) => wpStatus(e.wp).status !== 'abgesagt');
+  return liste;
 }
 
 /**

@@ -2,7 +2,7 @@
 // Keine Abhängigkeit vom Browser – wird auch in den Tests verwendet.
 //
 // Erwartete Datenstruktur `d`:
-//   d.wp:    Map<id, {id, strecke, erstesAuto, sperrVon, sperrBis, intervallMin, schnittKmh}>  (Zeiten in ms)
+//   d.wp:    Map<id, {id, strecke, erstesAuto, sperrVon, sperrBis, intervallMin, schnittKmh, laengeKm}>  (Zeiten in ms)
 //   d.zp:    Map<id, {id, strecke, km, parkplatz, fusswegMin}>
 //   d.ort:   Map<id, {id, typ, gesperrtMit: string[]}>
 //   d.fahrzeit(vonId, nachId) → Minuten | null
@@ -24,6 +24,29 @@ export function durchfahrt(d, zpId, wpId) {
   const erster = ankunftBeiKm(wp, zp.km, 1);
   const letzter = ankunftBeiKm(wp, zp.km, Math.max(1, d.starterAnzahl));
   return { erster, letzter };
+}
+
+/** Geschätzter Zeitpunkt, zu dem das letzte Auto das Ziel der WP erreicht. */
+export function letztesAutoImZiel(wp, starterAnzahl) {
+  return ankunftBeiKm(wp, wp.laengeKm || 0, Math.max(1, starterAnzahl));
+}
+
+/**
+ * Status einer WP allein aus dem Zeitplan (es gibt keinen Live-Status):
+ *   geplant  – vor der Straßensperrung
+ *   gesperrt – Straßen gesperrt, das erste Auto ist noch nicht gestartet
+ *   laeuft   – vom ersten Auto bis zum geschätzten letzten Auto im Ziel (spätestens Sperrende)
+ *   beendet  – danach
+ * @returns {{status: string, ende: number} | null}
+ */
+export function wpZeitStatus(d, wpId, t) {
+  const wp = d.wp.get(wpId);
+  if (!wp) return null;
+  const ende = Math.min(letztesAutoImZiel(wp, d.starterAnzahl), wp.sperrBis);
+  if (t < wp.sperrVon) return { status: 'geplant', ende };
+  if (t < wp.erstesAuto) return { status: 'gesperrt', ende };
+  if (t < ende) return { status: 'laeuft', ende };
+  return { status: 'beendet', ende };
 }
 
 /** Alle Durchfahrten (Kombinationen Zuschauerpunkt × WP derselben Strecke), zeitlich sortiert. */

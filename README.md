@@ -1,8 +1,14 @@
 # Rallye Wartburg – Zuschauer-App
 
 Offline-fähige Web-App für Rallye-Zuschauer: Karte mit WPs, Zuschauerpunkten, Sperrzonen und
-Parkplätzen, Zeitplan mit Sperrzeiten, Tagesplaner, Starterliste mit Favoriten, Notfall-Anzeige,
-Zuschauerpass, Anwohner-Checker sowie Regeln und Glossar – auf Deutsch und Englisch.
+Parkplätzen (umschaltbar: Schlicht, Entdecken, Straßen, Luftbild), Zeitplan mit Sperrzeiten und
+Status laut Zeitplan, Tagesplaner, Starterliste mit Favoriten, Notfall-Anzeige, Zuschauerpass,
+Anwohner-Checker sowie Regeln und Glossar – auf Deutsch und Englisch.
+
+Läuft auf Handy, Tablet und Computer: Ab 1100 px Breite steht die Karte neben Zeitplan, Planer
+und Starterliste – praktisch zum Planen vor der Veranstaltung. Die Sprache folgt beim ersten Öffnen
+der Systemsprache (Deutsch → Deutsch, andere → Englisch, unbekannt → Deutsch). Auf iPhone, iPad
+und Mac wählt man bei der Navigation zwischen Apple Karten und Google Maps.
 
 **Ohne Backend:** Die App besteht nur aus statischen Dateien. Alles wird auf dem Gerät berechnet.
 Die Grundkarte kommt direkt von [OpenFreeMap](https://openfreemap.org), die eigenen Ebenen
@@ -25,7 +31,7 @@ Fehler in den Daten erscheinen im Terminal und als Hinweis im Browser.
 > **Offline-Modus nur über HTTPS:** Browser erlauben Offline-Speicher und Service Worker nur auf
 > `https://…` oder `http://localhost`. Über die WLAN-Adresse (`http://192.168.…:5173`) läuft die App
 > auf dem Handy zwar, speichert aber nichts – die App zeigt dann „Offline nur über HTTPS“.
-> Offline auf dem Handy also über die GitHub-Pages-Adresse testen.
+> Offline auf dem Handy also über die veröffentlichte `https://`-Adresse testen.
 
 > `index.html` **nicht per Doppelklick** öffnen – die App braucht einen Webserver
 > (`npm run dev`, `npm run preview` oder das Hosting). Besucher brauchen dagegen nichts
@@ -74,6 +80,10 @@ Offline-Region, fehlende Fahrzeiten, Platzhalter in Impressum/Datenschutz.
 4. Die App ist dann unter `https://<benutzername>.github.io/RallyeWebApp/` erreichbar –
    ganz normal im Browser, ohne Befehle oder Installation.
 
+**Eigene Domain:** unter Settings → Pages → „Custom domain“ eintragen, beim Domain-Anbieter einen
+CNAME (`www` → `<benutzername>.github.io`) bzw. die A-Records von GitHub setzen und danach
+**„Enforce HTTPS“** aktivieren – ohne HTTPS gibt es keinen Offline-Modus.
+
 GitHub Pages ist für **öffentliche** Repositories kostenlos. Für private Repositories braucht
 man GitHub Pro (für Studierende im GitHub Student Developer Pack enthalten).
 
@@ -96,6 +106,9 @@ QR-Codes stabil, auch wenn du den Hoster wechselst.
 - **Grundkarte:** Im Hintergrund wird die Region aus `einstellungen.json` bis Zoom 14 direkt von
   OpenFreeMap gespeichert (≈ 150–200 Dateien bei den Beispieldaten, höchstens 4 gleichzeitig).
   Neue Kartenversionen werden erst übernommen, wenn sie vollständig gespeichert sind.
+- **Weitere Kartenansichten** (Entdecken, Straßen) nutzen dieselben Kacheln; gespeichert wird beim
+  ersten Auswählen nur ihre Stil-Datei. Das **Luftbild** kommt direkt vom Landesdienst und ist nur
+  online verfügbar.
 - **Ohne Grundkarte** (erstes Öffnen offline, Anbieter gestört) zeigt die Karte trotzdem Strecken,
   Zuschauerpunkte, Sperrzonen und den eigenen Standort.
 
@@ -106,7 +119,7 @@ QR-Codes stabil, auch wenn du den Hoster wechselst.
 - [ ] Impressum und Datenschutzerklärung vollständig (Hoster eintragen)
 - [ ] OpenFreeMap-Betreiber über das Projekt informieren (Offline-Downloads: max. 3000 Kacheln,
       max. 4 parallele Anfragen; ein eigener User-Agent ist im Browser nicht möglich) – Spende erwägen
-- [ ] Live-Status-Weg festgelegt (Datei beim Hoster mit kurzer Cache-Zeit oder Google-Tabelle)
+- [ ] Zeiten im Zeitplan geprüft – der WP-Status („Läuft“, „Beendet“) wird daraus berechnet
 - [ ] Auf echten Handys getestet (Android/Chrome und iPhone/Safari, auch „Zum Home-Bildschirm“)
 
 ## Aufbau
@@ -114,11 +127,11 @@ QR-Codes stabil, auch wenn du den Hoster wechselst.
 ```
 daten/            Inhalte (Tabellen, Karten, Einstellungen, Texte) → siehe daten/LIESMICH.md
 scripts/          daten-bauen.mjs: prüft daten/ und erzeugt public/daten/
-public/           statische Dateien (Icons, Web-App-Manifest, status.json, .htaccess)
+public/           statische Dateien (Icons, Web-App-Manifest, .htaccess)
 src/main.js       Start, Navigation, Updates
-src/app/          Logik: Karte, Offline-Speicher, Status, Standort, Hinweise, Zuschauerpass …
+src/app/          Logik: Karte, Offline-Speicher, Navigation, Standort, Hinweise, Zuschauerpass …
 src/views/        Ansichten (Karte, Steckbrief, Zeitplan, Planer, Starter, Mehr, Notfall, Extras)
-src/lib/          reine Berechnungen (Zeitzonen, CSV, Planer, Kalender, Kacheln) – auch für Tests
+src/lib/          reine Berechnungen (Zeitzonen, CSV, Planer, Status, Kalender, Kacheln, Sprache, Navi-Links) – auch für Tests
 src/i18n/         Oberflächentexte Deutsch/Englisch
 test/             automatische Tests (node --test)
 ```
@@ -128,3 +141,4 @@ Verwendete Bibliotheken: [MapLibre GL JS](https://maplibre.org) (Karte), [Turf](
 
 Kartendaten: © [OpenFreeMap](https://openfreemap.org), © [OpenMapTiles](https://www.openmaptiles.org/),
 Daten von © [OpenStreetMap-Mitwirkende](https://www.openstreetmap.org/copyright).
+Luftbild: Digitale Orthophotos © [GDI-Th](https://www.geoportal-th.de), Lizenz CC BY 4.0.

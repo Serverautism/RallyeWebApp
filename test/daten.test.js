@@ -124,3 +124,37 @@ test('Sperrung nach dem ersten Auto ist ein Fehler', () => {
   const erg = bauen(w);
   assert.ok(enthaelt(erg.fehler, 'vor dem ersten Auto beginnen'), erg.fehler.join('\n'));
 });
+
+test('Kartenansichten: Standard zuerst, Luftbild braucht Ebene und Quelle', () => {
+  const erg = datenBauen({ wurzel: PROJEKT, schreiben: false });
+  assert.equal(erg.programm.karte.stil, 'https://tiles.openfreemap.org/styles/positron');
+  assert.deepEqual(erg.programm.karte.stile.map((s) => s.id), ['schlicht', 'entdecken', 'strassen', 'luftbild']);
+  assert.equal(erg.programm.karte.stile[3].luftbild.ebene, 'th_dop');
+
+  const w = kopie();
+  const p = datei(w, 'einstellungen.json');
+  const e = JSON.parse(fs.readFileSync(p, 'utf8'));
+  const luftbild = e.karte.stile.pop();
+  delete luftbild.quelle;
+  e.karte.stile.unshift(luftbild);
+  e.status = { url: 'status.json' };
+  fs.writeFileSync(p, JSON.stringify(e));
+  const falsch = bauen(w);
+  assert.equal(falsch.ok, false);
+  assert.ok(enthaelt(falsch.fehler, 'muss ein Kartenstil mit „url“ sein'), falsch.fehler.join('\n'));
+  assert.ok(enthaelt(falsch.fehler, '„quelle“ fehlt'), falsch.fehler.join('\n'));
+  assert.ok(enthaelt(falsch.warnungen, '„status“ wird nicht mehr verwendet'), falsch.warnungen.join('\n'));
+});
+
+test('Ältere Einstellungen mit nur „karte.stil“ funktionieren weiter', () => {
+  const w = kopie();
+  const p = datei(w, 'einstellungen.json');
+  const e = JSON.parse(fs.readFileSync(p, 'utf8'));
+  delete e.karte.stile;
+  e.karte.stil = 'https://tiles.openfreemap.org/styles/positron';
+  fs.writeFileSync(p, JSON.stringify(e));
+  const erg = bauen(w);
+  assert.deepEqual(erg.fehler, []);
+  assert.equal(erg.programm.karte.stile.length, 1);
+  assert.equal(erg.programm.karte.stil, e.karte.stil);
+});

@@ -193,6 +193,10 @@ a {
   color: var(--akzent-tab);
   border-top-color: var(--akzent-tab);
 }
+/* Logo nur in der Seitenleiste (Computer) */
+.tab-marke {
+  display: none;
+}
 
 .lade {
   padding: 48px 24px;
@@ -545,6 +549,13 @@ a.plakette {
   font-size: 14px;
   font-weight: 700;
 }
+.segment.mini.drei {
+  grid-template-columns: repeat(3, auto);
+}
+.segment.mini.drei .segment-knopf {
+  padding: 0 10px;
+  font-size: 13px;
+}
 
 /* ---- Hinweiskarten ------------------------------------------------------------ */
 .hinweis-karte {
@@ -653,11 +664,13 @@ a.plakette {
 #karte {
   position: absolute;
   inset: 0;
+  z-index: 0; /* eigene Ebene: Marker (z-index 1–4) bleiben unter den Bedienelementen */
   background: #e9ece1;
 }
 .karten-ui {
   position: absolute;
   inset: 0;
+  z-index: 1;
   pointer-events: none;
 }
 .karten-ui > * {
@@ -745,6 +758,104 @@ a.plakette {
 }
 .k-orten.aktiv {
   box-shadow: 0 0 0 3px #fff, 0 0 0 5px var(--blau);
+}
+.k-knopf.aktiv {
+  background: var(--text);
+  color: var(--hg);
+}
+
+/* Auswahl der Kartenansicht */
+.stil-wahl {
+  position: absolute;
+  right: 68px;
+  bottom: calc(var(--blatt-hoehe) + 32px);
+  width: min(300px, calc(100% - 92px));
+  background: var(--karte);
+  border-radius: 16px;
+  box-shadow: var(--schatten);
+  padding: 8px 10px 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 5;
+}
+.stil-kopf {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 15px;
+}
+.stil-kopf .blatt-zu {
+  position: static;
+  width: 36px;
+  height: 36px;
+}
+.stil-raster {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+.stil-option {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 5px;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  min-width: 0;
+}
+.stil-option.aktiv {
+  border-color: var(--akzent);
+}
+.stil-option:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.stil-name {
+  font-weight: 700;
+  font-size: 14px;
+}
+.stil-unter {
+  font-size: 11.5px;
+  line-height: 1.2;
+  color: var(--text-3);
+}
+.stil-bild {
+  display: block;
+  height: 54px;
+  border-radius: 9px;
+  border: 1px solid var(--rahmen);
+  background-color: #e9eae6;
+}
+.stil-bild-schlicht {
+  background:
+    linear-gradient(115deg, transparent 46%, #fff 46% 54%, transparent 54%),
+    linear-gradient(25deg, transparent 60%, #fff 60% 66%, transparent 66%),
+    #e7e8e3;
+}
+.stil-bild-entdecken {
+  background:
+    linear-gradient(115deg, transparent 46%, #f7c873 46% 54%, transparent 54%),
+    radial-gradient(circle at 24% 32%, #b5d99c 0 22%, transparent 23%),
+    linear-gradient(0deg, #a6d1ec 0 20%, transparent 20%),
+    #f3efe6;
+}
+.stil-bild-strassen {
+  background:
+    linear-gradient(115deg, transparent 43%, #f39a55 43% 57%, transparent 57%),
+    linear-gradient(25deg, transparent 58%, #ffd27a 58% 67%, transparent 67%),
+    #f1ede4;
+}
+.stil-bild-luftbild {
+  background:
+    radial-gradient(circle at 72% 28%, #6f8a4e 0 24%, transparent 25%),
+    radial-gradient(circle at 24% 72%, #3f5b34 0 30%, transparent 31%),
+    linear-gradient(115deg, transparent 47%, #cfc7b4 47% 53%, transparent 53%),
+    #7d9160;
 }
 
 .blatt {
@@ -1009,6 +1120,29 @@ a.plakette {
   bottom: var(--blatt-hoehe);
 }
 
+/* Breite Kartenfläche (Tablet, Computer): Infokarte schwebt links, Kopf und Ebenen bleiben kompakt */
+.flaeche-breit .k-oben {
+  right: auto;
+  width: min(620px, calc(100% - 24px));
+}
+.flaeche-breit .blatt {
+  left: 12px;
+  right: auto;
+  bottom: 12px;
+  width: 380px;
+  max-height: calc(100% - 170px);
+  border-radius: 16px;
+  box-shadow: 0 6px 24px rgba(24, 32, 28, 0.18);
+}
+.flaeche-breit .blatt-griff {
+  display: none;
+}
+.flaeche-breit .karten-hinweis.unten {
+  left: auto;
+  right: 72px;
+  width: min(360px, calc(100% - 480px));
+}
+
 /* ---- Steckbrief ---------------------------------------------------------- */
 .steckbrief .seite {
   padding-top: 18px;
@@ -1105,6 +1239,12 @@ a.plakette {
   gap: 2px;
   font-variant-numeric: tabular-nums;
 }
+.tabelle-titel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
 .status-hinweis {
   font-size: 13px;
   font-weight: 600;
@@ -1194,30 +1334,42 @@ a.plakette {
   font-variant-numeric: tabular-nums;
 }
 
-.meldungen {
+/* „Jetzt laut Zeitplan“ – ersetzt den früheren Live-Status */
+.jetzt-kasten {
+  background: var(--karte);
+  border-radius: 14px;
+  padding: 12px 14px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+  box-shadow: inset 4px 0 0 var(--gruen);
 }
-.meldung {
-  background: var(--karte);
-  border-radius: 12px;
-  padding: 12px;
+.jetzt-kasten .hinweis-label {
+  color: var(--gruen-text);
+}
+.jetzt-liste {
+  margin: 0;
+  padding: 0;
+  list-style: none;
   display: flex;
-  gap: 10px;
-  color: var(--text-2);
+  flex-direction: column;
+  gap: 4px;
+  font-size: 15px;
+  line-height: 1.35;
+  font-variant-numeric: tabular-nums;
 }
-.meldung p {
-  margin: 0 0 2px;
-  font-size: 14px;
-  line-height: 1.4;
+.jetzt-naechstes {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 15px;
+  line-height: 1.35;
+  font-variant-numeric: tabular-nums;
 }
-.meldung.wichtig {
-  background: var(--rot-hell);
-  color: var(--rot-text);
-}
-.stand {
-  align-self: flex-end;
+.jetzt-hinweis {
+  font-size: 12px;
+  color: var(--text-3);
 }
 
 .schritt {
@@ -1794,6 +1946,31 @@ a.plakette {
   color: var(--text-2);
 }
 
+/* ---- Auswahl der Navigations-App (Apple-Geräte) ------------------------------------ */
+.navi-wahl {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(24, 32, 28, 0.5);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 12px 12px calc(12px + env(safe-area-inset-bottom));
+}
+.navi-karte {
+  width: min(420px, 100%);
+  background: var(--karte);
+  border-radius: 18px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+}
+.navi-karte .abschnitt {
+  margin: 0;
+}
+
 /* ---- Toasts --------------------------------------------------------------------- */
 .toasts {
   position: absolute;
@@ -1860,6 +2037,146 @@ a.plakette {
   from {
     opacity: 0;
     transform: translateY(8px);
+  }
+}
+
+/* ---- Größere Bildschirme ----------------------------------------------------------
+   Inhalte richten sich nach der Breite ihrer Spalte (Container-Abfrage), das Gerüst nach
+   der Fensterbreite: ab 700 px volle Breite, ab 1100 px Seitenleiste + Karte neben den Inhalten. */
+.ansicht {
+  container: ansicht / inline-size;
+}
+
+@container ansicht (min-width: 700px) {
+  .seite {
+    width: 100%;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 24px 28px 40px;
+  }
+  .steckbrief .foto {
+    height: 280px;
+  }
+  .raster-2 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .starter-liste {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .stempel-raster {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 700px) {
+  .app {
+    max-width: none;
+    box-shadow: none;
+  }
+  .tabbar {
+    grid-template-columns: repeat(5, minmax(0, 140px));
+    justify-content: center;
+  }
+  .toasts {
+    left: 50%;
+    right: auto;
+    width: min(460px, calc(100% - 24px));
+    transform: translateX(-50%);
+  }
+  .navi-wahl {
+    align-items: center;
+  }
+}
+
+@media (min-width: 1100px) {
+  :root {
+    --spalte: clamp(420px, 36vw, 560px);
+    --leiste: 92px;
+  }
+  .app {
+    display: grid;
+    grid-template-columns: var(--leiste) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas:
+      'nav kopf'
+      'nav haupt';
+  }
+  .kopfleiste {
+    grid-area: kopf;
+  }
+  .haupt {
+    grid-area: haupt;
+  }
+  .tabbar {
+    grid-area: nav;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 4px;
+    height: auto;
+    padding: 14px 8px 14px 0;
+  }
+  .tab-marke {
+    display: block;
+    margin: 0 auto 14px;
+    border-radius: 12px;
+  }
+  .tab {
+    min-height: 68px;
+    border-top: none;
+    border-left: 3px solid transparent;
+    border-radius: 0 10px 10px 0;
+    font-size: 12px;
+    gap: 5px;
+  }
+  .tab.aktiv {
+    border-left-color: var(--akzent-tab);
+    background: rgba(255, 255, 255, 0.07);
+  }
+  .toasts {
+    left: auto;
+    right: 20px;
+    bottom: 20px;
+    width: 380px;
+    transform: none;
+  }
+  /* Inhalte links, Karte rechts daneben */
+  .app.geteilt .ansicht {
+    right: auto;
+    width: var(--spalte);
+    border-right: 1px solid var(--rahmen);
+  }
+  .app.geteilt .karten-ansicht {
+    left: var(--spalte);
+  }
+}
+
+/* Maus: sichtbare Rückmeldung beim Überfahren */
+@media (hover: hover) {
+  .knopf:hover,
+  .knopf-klein:hover,
+  .k-knopf:hover {
+    filter: brightness(0.94);
+  }
+  .knopf-akzent:hover,
+  .knopf-dunkel:hover {
+    filter: brightness(1.12);
+  }
+  .liste-zeile:hover,
+  .stil-option:not(:disabled):hover {
+    background: var(--grau-hell);
+  }
+  .tab:hover {
+    color: #fff;
+  }
+  .chip:hover {
+    border-color: var(--text-3);
+  }
+  .zeile-titel a:hover,
+  .schritt-titel:hover,
+  .chip-link:hover {
+    text-decoration: underline;
   }
 }
 

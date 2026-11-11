@@ -12,7 +12,10 @@ import {
   fruehesteFreigabe,
   spaetesteDurchfahrt,
   sperrIntervalle,
+  wpZeitStatus,
 } from '../src/lib/planer.js';
+import { startSprache } from '../src/lib/sprache.js';
+import { googleMapsUrl, appleKartenUrl, appleNeuesFormat, istAppleGeraet } from '../src/lib/navi.js';
 
 const TZ = 'Europe/Berlin';
 
@@ -232,4 +235,49 @@ test('Planer: gleicher Parkplatz → kein Fahren nötig, unbekannte Fahrzeit', (
   const u = planBerechnen(d, [{ zp: 'ZP2', wp: 'WP4' }, { zp: 'ZP8', wp: 'WP6' }], 'S1').schritte;
   assert.equal(u[1].machbar, null);
   assert.equal(u[1].grund, 'fahrzeit-unbekannt');
+});
+
+test('Status laut Zeitplan: geplant → gesperrt → läuft → beendet', () => {
+  const d = testDaten();
+  d.wp.get('WP3').laengeKm = 7.5; // 7,5 km bei 75 km/h = 6 min; 28 Starter im Minutentakt = +27 min
+  assert.equal(wpZeitStatus(d, 'WP3', t('07:00')).status, 'geplant');
+  assert.equal(wpZeitStatus(d, 'WP3', t('08:00')).status, 'gesperrt');
+  const s = wpZeitStatus(d, 'WP3', t('08:40'));
+  assert.equal(s.status, 'laeuft');
+  assert.equal(s.ende, t('09:08'));
+  assert.equal(wpZeitStatus(d, 'WP3', t('09:08')).status, 'beendet');
+  assert.equal(wpZeitStatus(d, 'WP9', t('09:00')), null);
+  // Endet die Sperrung früher als gerechnet, ist die WP spätestens dann beendet
+  d.wp.get('WP3').sperrBis = t('08:50');
+  assert.equal(wpZeitStatus(d, 'WP3', t('08:50')).status, 'beendet');
+});
+
+test('Sprache: Deutsch als Standard, sonst Systemsprache', () => {
+  assert.equal(startSprache([]), 'de');
+  assert.equal(startSprache(undefined), 'de');
+  assert.equal(startSprache(['', null]), 'de');
+  assert.equal(startSprache(['de-DE']), 'de');
+  assert.equal(startSprache(['de-CH', 'en']), 'de');
+  assert.equal(startSprache(['EN-gb']), 'en');
+  assert.equal(startSprache(['fr-FR']), 'en');
+  assert.equal(startSprache(['fr-FR', 'de-AT']), 'de');
+  assert.equal(startSprache(['cs', 'pl']), 'en');
+});
+
+test('Navigation: Links für Google Maps und Apple Karten', () => {
+  const lage = [10.30123456, 50.97654321];
+  assert.equal(googleMapsUrl(lage), 'https://www.google.com/maps/dir/?api=1&destination=50.97654,10.30123&travelmode=driving');
+  assert.equal(appleKartenUrl(lage), 'https://maps.apple.com/directions?destination=50.97654,10.30123&mode=driving');
+  assert.equal(appleKartenUrl(lage, false), 'https://maps.apple.com/?daddr=50.97654,10.30123&dirflg=d');
+  const ios = (os, rest) => `Mozilla/5.0 (iPhone; CPU iPhone OS ${os} like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) ${rest}`;
+  assert.equal(appleNeuesFormat(ios('17_5', 'Version/17.5 Mobile/15E148 Safari/604.1')), false);
+  assert.equal(appleNeuesFormat(ios('18_4', 'Version/18.4 Mobile/15E148 Safari/604.1')), true);
+  assert.equal(appleNeuesFormat(ios('18_6', 'Version/26.0 Mobile/15E148 Safari/604.1')), true); // iOS 26 meldet OS 18_6
+  assert.equal(appleNeuesFormat(ios('18_3', 'CriOS/131.0.6778.73 Mobile/15E148 Safari/604.1')), false);
+  assert.equal(appleNeuesFormat('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/130.0 Safari/537.36'), true);
+  assert.equal(istAppleGeraet(ios('18_4', '')), true);
+  assert.equal(istAppleGeraet('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)'), true);
+  assert.equal(istAppleGeraet('Mozilla/5.0 (X11; Linux x86_64)', 'MacIntel', 5), true); // iPad im Desktop-Modus
+  assert.equal(istAppleGeraet('Mozilla/5.0 (Linux; Android 14; Pixel 8)', 'Linux armv8l', 5), false);
+  assert.equal(istAppleGeraet('Mozilla/5.0 (Windows NT 10.0; Win64; x64)', 'Win32', 0), false);
 });

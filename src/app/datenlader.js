@@ -121,7 +121,6 @@ export function aufbereiten(manifest, { programm: p, geo, starter, inhalte }) {
     planerStart: p.planer.startort,
     favoriten: p.favoriten,
     pass: p.zuschauerpass,
-    statusCfg: p.status,
     kontakt: p.kontakt,
     starterAnzahl: p.starterAnzahl,
     strecken,
