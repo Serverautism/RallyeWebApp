@@ -75,8 +75,12 @@ function strassenZeiten(s) {
   return s.sperrtMit
     .map((id) => d.wp.get(id))
     .filter(Boolean)
-    .sort((a, b) => a.sperrVon - b.sperrVon)
-    .map((w) => `${zeitMitTag(w.sperrVon)}–${zeit(w.sperrBis)} (${wpKurz(w)})`)
+    .sort((a, b) => (a.sperrVon ?? a.erstesAuto) - (b.sperrVon ?? b.erstesAuto))
+    .map((w) =>
+      w.sperrVon !== null && w.sperrBis !== null
+        ? `${zeitMitTag(w.sperrVon)}–${zeit(w.sperrBis)} (${wpKurz(w)})`
+        : t('anwohner.zeit_unbekannt', { wp: wpKurz(w), zeit: zeitMitTag(w.erstesAuto) }),
+    )
     .join(` ${t('allg.und')} `);
 }
 
@@ -107,7 +111,7 @@ export const anwohnerAnsicht = {
       <label class="suchfeld gross">
         ${icon('suche', 18)}
         <span class="nur-vorleser">${t('anwohner.strasse')}</span>
-        <input type="search" data-eingabe="strasse" value="${strassenSuche}" placeholder="${t('anwohner.platzhalter')}" autocomplete="street-address" enterkeyhint="search">
+        <input type="search" data-eingabe="strasse" value="${strassenSuche}" placeholder="${t('anwohner.platzhalter', { beispiel: zustand.daten.strassen[0]?.strasse ?? 'Marktstraße' })}" autocomplete="street-address" enterkeyhint="search">
       </label>
       <div id="anwohner-ergebnis">${anwohnerErgebnis()}</div>
       <p class="klein">${t('anwohner.rettung')}${k.rallyebueroTel ? ` ${t('anwohner.fragen', { tel: k.rallyebueroTel })}` : ''}</p>

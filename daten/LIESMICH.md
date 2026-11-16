@@ -4,10 +4,16 @@ In diesem Ordner liegen **alle Inhalte** der App. Code musst du dafür nicht anf
 Nach jeder Änderung prüft `npm run daten` (oder automatisch `npm run dev` / `npm run build`)
 alles gründlich und meldet Fehler mit **Datei und Zeile**.
 
-> **Aktuell sind hier Beispieldaten.** Die Namen der Prüfungen (Hohe Sonne, Krauthäuser Loch,
-> Flachsgrund), das Rallyezentrum an der AWE und der Ablauf sind an frühere Ausgaben der
-> Rallye Wartburg angelehnt. Strecken, Zeiten, Punkte, Teilnehmer und Straßen sind **erfunden**.
+> **Aktuell sind hier Testdaten der 61. RSC-Rallye Wartburg 2026** aus dem Programmheft:
+> Zeitplan, Wertungsprüfungen mit Startzeiten und Längen, Zuschauerpunkte, Orte am Festplatz
+> Spicke, Nennliste, Hinweise von Forstamt und Sicherheit. **Nicht** im Programmheft standen:
+> Sperrzeiten, Parkplätze (außer am Start WP 3/5), Fußwege, Fahrzeiten, die Länge von WP 1/2,
+> Straßenbelag und Kontaktdaten – diese Felder sind leer. Die **Karte** (`karte/*.geojson`) ist nur
+> ein grober Platzhalter (`"platzhalter": true`) und muss noch digitalisiert werden.
 > Solange `"beispieldaten": true` gesetzt ist, zeigt die App einen gelben Hinweis.
+>
+> Der frühere, erfundene Beispieldatensatz (fiktive Rallye 2027) liegt unter `test/beispiel/daten/`
+> – die automatischen Tests nutzen ihn, er ist auch eine gute Vorlage.
 
 ## Überblick
 
@@ -46,7 +52,7 @@ exakt gleich geschrieben sein.
 | `strecke` | ja | `FG` | ID aus `strecken.csv` / `strecken.geojson` |
 | `tag` | ja | `sa` | ID eines Tages aus `einstellungen.json` |
 | `erstes_auto` | ja | `08:35` | Start des ersten Teilnehmers in die WP |
-| `sperrung_von` / `sperrung_bis` | ja | `07:35` / `10:05` | Vollsperrung laut Sicherheitskonzept |
+| `sperrung_von` / `sperrung_bis` | – | `07:35` / `10:05` | Vollsperrung laut Sicherheitskonzept; beide oder keine – leer = App zeigt „Sperrzeit nicht angegeben“ |
 | `intervall_min` | – | `1` | Startabstand in Minuten (Standard 1) |
 | `schnitt_kmh` | – | `75` | geschätzter Schnitt für Durchfahrtszeiten (Standard 80) |
 | `laenge_km` | – | `4,78` | offizielle Länge; leer = aus der Linie berechnet |
@@ -66,8 +72,8 @@ Eine Strecke kann mehrere WPs haben (z. B. WP 1 und WP 4 auf „Hohe Sonne“).
 | `name_de` / `name_en` | ja / – | |
 | `strecke` | ja | an welcher Strecke der Punkt liegt |
 | `km` | – | Lage auf der Strecke; **leer lassen** = wird aus der Karte berechnet |
-| `parkplatz` | ja | ID eines Orts vom Typ `parkplatz` |
-| `fussweg_m`, `fussweg_min` | –, ja | Fußweg vom Parkplatz |
+| `parkplatz` | – | ID eines Orts vom Typ `parkplatz`; leer = Navigation direkt zum Punkt, Planer ohne Anfahrt |
+| `fussweg_m`, `fussweg_min` | – | Fußweg vom Parkplatz; leer = „unbekannt“ (Planer rechnet mit 0 min) |
 | `hoehenmeter` | – | |
 | `untergrund_de/_en`, `versorgung_de/_en`, `beschreibung_de/_en` | – | freie Texte |
 | `barrierefrei`, `kinderwagen` | – | `ja`, `nein` oder `teilweise` |
@@ -128,6 +134,9 @@ Fehlende Paare meldet der Build als Hinweis. Tipp: vorab mit OSRM/GraphHopper be
 - **GPX vom Veranstalter** umwandeln: z. B. auf geojson.io öffnen und als GeoJSON speichern,
   oder `ogr2ogr -f GeoJSON strecken.geojson strecke.gpx tracks`. Danach `id` ergänzen.
 - 5 Nachkommastellen reichen (≈ 1 m); der Build rundet automatisch.
+- `"platzhalter": true` unter `properties` markiert eine grobe Platzhalter-Geometrie. Der Build
+  warnt dann, und Längen aus Platzhalter-Linien werden in der App nicht angezeigt. Beim
+  Digitalisieren einfach weglassen (echte Objekte brauchen nur die `id`).
 
 ### Zeichnen mit geojson.io
 
@@ -142,6 +151,7 @@ Fehlende Paare meldet der Build als Hinweis. Tipp: vorab mit OSRM/GraphHopper be
 | `veranstaltung.name_de/_en`, `kurzname`, `jahr`, `veranstalter` | Anzeige; `jahr` trennt Favoriten/Pläne verschiedener Jahre |
 | `veranstaltung.zeitzone` | `Europe/Berlin` |
 | `veranstaltung.beispieldaten` | `true` zeigt den gelben Hinweis – für echte Daten `false` |
+| `veranstaltung.hinweis_de/_en` | optional: eigener Text für den gelben Hinweis (sonst „Beispieldaten …“) |
 | `tage` | Liste mit `id`, `datum` (JJJJ-MM-TT), `name_de`, `name_en` |
 | `karte.stile` | Kartenansichten zum Umschalten (siehe unten); die **erste** ist der Standard und wird offline gespeichert |
 | `karte.region` | [West, Süd, Ost, Nord] – dieser Ausschnitt wird **offline gespeichert** |
@@ -187,8 +197,8 @@ Status jeder WP aus dem Zeitplan ab:
 
 | Status | Zeitraum |
 |---|---|
-| (geplant, ohne Anzeige) | vor `sperrung_von` |
-| Straßen gesperrt | `sperrung_von` bis `erstes_auto` |
+| (geplant, ohne Anzeige) | vor `sperrung_von` (ohne Sperrzeiten: vor `erstes_auto`) |
+| Straßen gesperrt | `sperrung_von` bis `erstes_auto` (entfällt ohne Sperrzeiten) |
 | Läuft | `erstes_auto` bis zum geschätzten letzten Auto im Ziel (Starterzahl × `intervall_min` + Länge ÷ `schnitt_kmh`), höchstens bis `sperrung_bis` |
 | Beendet | danach (bis `sperrung_bis` mit dem Hinweis „Straßen noch gesperrt“) |
 

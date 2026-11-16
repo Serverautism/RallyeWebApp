@@ -6,7 +6,7 @@ import { t, feld } from '../app/i18n.js';
 import { zustand } from '../app/zustand.js';
 import { tagIdVon, zeit, zeitMitTag, wpKurz, relativ } from '../app/format.js';
 import { jetzt } from '../app/uhr.js';
-import { sperrIntervalle, naechsteSperrung, sperrungZu, wpZeitStatus } from '../lib/planer.js';
+import { sperrIntervalle, naechsteSperrung, sperrungZu, wpZeitStatus, sperrzeitenUnbekannt } from '../lib/planer.js';
 import { navigationsHref } from '../app/navigation.js';
 
 export function seitenKopf(titel, { ueberzeile = null, zurueck = null, unterzeile = null } = {}) {
@@ -66,8 +66,14 @@ export function statusHinweis(wpId) {
   let text = '';
   if (s.status === 'gesperrt') text = t('status.hinweis_gesperrt', { rel: relativ(wp.erstesAuto, nun) });
   else if (s.status === 'laeuft') text = t('status.hinweis_laeuft', { zeit: zeit(s.ende) });
-  else if (s.status === 'beendet' && nun < wp.sperrBis) text = t('status.hinweis_beendet', { zeit: zeit(wp.sperrBis) });
+  else if (s.status === 'beendet' && wp.sperrBis !== null && nun < wp.sperrBis) text = t('status.hinweis_beendet', { zeit: zeit(wp.sperrBis) });
   return text ? html`<span class="status-hinweis">${text}</span>` : '';
+}
+
+/** „gesperrt 08:15–10:45“ bzw. „Sperrzeit nicht angegeben“ für eine WP */
+export function sperrzeitText(wp, schluessel = 'zp.gesperrt') {
+  if (wp.sperrVon === null || wp.sperrBis === null) return t('wp.sperrzeit_unbekannt');
+  return t(schluessel, { von: zeit(wp.sperrVon), bis: zeit(wp.sperrBis) });
 }
 
 /** Text zur Zufahrt eines Parkplatzes, bezogen auf jetzt */
@@ -75,7 +81,10 @@ export function zufahrtText(ortId) {
   const d = zustand.daten;
   const ort = d.ort.get(ortId);
   const iv = sperrIntervalle(d, ortId);
-  if (!iv.length) return { text: t('zufahrt.frei', { p: ort?.id ?? ortId }), art: 'neutral' };
+  if (!iv.length) {
+    if (sperrzeitenUnbekannt(d, ortId)) return { text: t('zufahrt.unbekannt', { p: ort?.id ?? ortId }), art: 'warnung' };
+    return { text: t('zufahrt.frei', { p: ort?.id ?? ortId }), art: 'neutral' };
+  }
   const nun = jetzt();
   const aktuell = sperrungZu(iv, nun);
   if (aktuell) return { text: t('zufahrt.gesperrt_bis', { p: ortId, zeit: zeit(aktuell.bis) }), art: 'warnung' };

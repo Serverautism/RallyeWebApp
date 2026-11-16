@@ -6,7 +6,7 @@ import { zustand } from '../app/zustand.js';
 import { jetzt } from '../app/uhr.js';
 import { zeit, zeitMitTag, km, wpKurz, datumUndZeit, relativ } from '../app/format.js';
 import { planEintraege, planFuerTag } from '../app/meine.js';
-import { seitenKopf, tagReiter, standardTag, statusPlakette, statusHinweis, wpStatus, leer } from './teile.js';
+import { seitenKopf, tagReiter, standardTag, statusPlakette, statusHinweis, wpStatus, sperrzeitText, zufahrtText, leer } from './teile.js';
 
 // Ein Programmpunkt ohne Endzeit gilt so lange als „jetzt“
 const OHNE_ENDE_MS = 30 * 60000;
@@ -61,10 +61,16 @@ function naechsterPlanHinweis(tagId) {
   const wp = d.wp.get(n.wp);
   const titel = n.abfahrtSpaetestens
     ? t('zeitplan.spaetestens_los', { zeit: zeit(n.abfahrtSpaetestens), rel: relativ(n.abfahrtSpaetestens, nun) })
-    : t('zeitplan.spaetestens_da', { zeit: zeit(n.ankunftSpaetestens), p: zp.parkplatz });
-  const zufahrt = n.schliesstWegen
-    ? t('zeitplan.zufahrt_schliesst', { p: zp.parkplatz, zeit: zeit(n.ankunftSpaetestens) })
-    : t('zeitplan.zufahrt_frei', { p: zp.parkplatz });
+    : zp.parkplatz
+      ? t('zeitplan.spaetestens_da', { zeit: zeit(n.ankunftSpaetestens), p: zp.parkplatz })
+      : t('zeitplan.erstes_auto_um', { zeit: zeit(n.erster) });
+  const zufahrt = !zp.parkplatz
+    ? t('zeitplan.ohne_parkplatz')
+    : n.schliesstWegen
+      ? t('zeitplan.zufahrt_schliesst', { p: zp.parkplatz, zeit: zeit(n.ankunftSpaetestens) })
+      : zufahrtText(zp.parkplatz).art === 'warnung'
+        ? zufahrtText(zp.parkplatz).text
+        : t('zeitplan.zufahrt_frei', { p: zp.parkplatz });
   return html`<a class="hinweis-dunkel" href="#/planer/${tagId}">
     <span class="hinweis-label">${t('zeitplan.sperrhinweis')}</span>
     <span class="hinweis-titel">${titel}</span>
@@ -78,14 +84,14 @@ function eintrag(z, wpImPlan, nun) {
   if (z.wp) {
     const wp = d.wp.get(z.wp);
     const s = d.strecken.get(wp.strecke);
-    const vorbei = nun > wp.sperrBis;
+    const vorbei = wp.sperrBis !== null ? nun > wp.sperrBis : wpStatus(wp.id).status === 'beendet';
     return html`<div class="zeile ${vorbei ? 'vorbei' : ''} ${wpImPlan.has(wp.id) ? 'im-plan' : ''}">
       <div class="zeile-zeit"><span class="zeit-gross">${zeit(wp.erstesAuto)}</span><span class="zeit-label">${t('zeitplan.erstes_auto')}</span></div>
       <div class="zeile-inhalt">
         <div class="zeile-titel"><a href="#/karte/strecke/${s.id}">${wpKurz(wp)} · ${feld(wp, 'name')}</a> ${statusPlakette(wp.id)}
           ${wpImPlan.has(wp.id) ? html`<span class="plakette plakette-akzent">${t('zeitplan.in_plan')}</span>` : ''}</div>
-        <span class="zeile-unter">${km(wp.laengeKm)}${feld(s, 'belag') ? ` · ${feld(s, 'belag')}` : ''}</span>
-        <span class="zeile-sperrung">${t('zeitplan.gesperrt', { von: zeit(wp.sperrVon), bis: zeit(wp.sperrBis) })}</span>
+        <span class="zeile-unter">${[wp.laengeUnsicher ? '' : km(wp.laengeKm), feld(s, 'belag')].filter(Boolean).join(' · ')}</span>
+        <span class="zeile-sperrung">${sperrzeitText(wp, 'zeitplan.gesperrt')}</span>
         ${statusHinweis(wp.id)}
       </div>
     </div>`;

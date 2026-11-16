@@ -137,7 +137,7 @@ function kopfZeichnen() {
   if (istDemo()) {
     teile.push(html`<div class="kopf-zeile kopf-demo">${icon('uhr', 16)} <span>${t('kopf.demo', { zeit: zeitMitTag(jetzt()) })}</span> <button type="button" data-aktion="demo-ende">${t('kopf.demo_ende')}</button></div>`);
   }
-  if (d?.beispieldaten) teile.push(html`<div class="kopf-zeile kopf-beispiel">${icon('info', 16)} <span>${t('kopf.beispieldaten')}</span></div>`);
+  if (d?.beispieldaten) teile.push(html`<div class="kopf-zeile kopf-beispiel">${icon('info', 16)} <span>${feld(d.veranstaltung, 'hinweis') || t('kopf.beispieldaten')}</span></div>`);
   if (!zustand.online) teile.push(html`<div class="kopf-zeile kopf-offline">${icon('offline', 16)} <span>${t('kopf.offline', { zeit: datumUndZeit(d?.erstellt ?? Date.now()) })}</span></div>`);
   el.kopf.innerHTML = String(html`${teile}`);
 }

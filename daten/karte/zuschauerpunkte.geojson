@@ -4,17 +4,34 @@
   {
    "type": "Feature",
    "properties": {
-    "id": "ZP1"
+    "id": "ZP1",
+    "platzhalter": true,
+    "hinweis": "Platzhalter – grobe Lage aus der Programmheft-Skizze, bitte durch digitalisierte Daten ersetzen"
    },
    "geometry": {
     "type": "Polygon",
     "coordinates": [
      [
-      [10.31464, 50.95529],
-      [10.31468, 50.95552],
-      [10.31369, 50.95559],
-      [10.31365, 50.95535],
-      [10.31464, 50.95529]
+      [
+       10.41991,
+       50.79187
+      ],
+      [
+       10.41914,
+       50.79163
+      ],
+      [
+       10.41898,
+       50.79183
+      ],
+      [
+       10.41975,
+       50.79207
+      ],
+      [
+       10.41991,
+       50.79187
+      ]
      ]
     ]
    }
@@ -22,17 +39,34 @@
   {
    "type": "Feature",
    "properties": {
-    "id": "ZP2"
+    "id": "ZP2",
+    "platzhalter": true,
+    "hinweis": "Platzhalter – grobe Lage aus der Programmheft-Skizze, bitte durch digitalisierte Daten ersetzen"
    },
    "geometry": {
     "type": "Polygon",
     "coordinates": [
      [
-      [10.35078, 50.93198],
-      [10.35109, 50.93211],
-      [10.35054, 50.93263],
-      [10.35023, 50.9325],
-      [10.35078, 50.93198]
+      [
+       10.27518,
+       50.98814
+      ],
+      [
+       10.27448,
+       50.98845
+      ],
+      [
+       10.27468,
+       50.98863
+      ],
+      [
+       10.27538,
+       50.98832
+      ],
+      [
+       10.27518,
+       50.98814
+      ]
      ]
     ]
    }
@@ -40,17 +74,34 @@
   {
    "type": "Feature",
    "properties": {
-    "id": "ZP3"
+    "id": "ZP3",
+    "platzhalter": true,
+    "hinweis": "Platzhalter – grobe Lage aus der Programmheft-Skizze, bitte durch digitalisierte Daten ersetzen"
    },
    "geometry": {
     "type": "Polygon",
     "coordinates": [
      [
-      [10.26251, 51.01401],
-      [10.26263, 51.01423],
-      [10.26169, 51.01444],
-      [10.26156, 51.01422],
-      [10.26251, 51.01401]
+      [
+       10.27,
+       51.01539
+      ],
+      [
+       10.27006,
+       51.01593
+      ],
+      [
+       10.26971,
+       51.01594
+      ],
+      [
+       10.26964,
+       51.01541
+      ],
+      [
+       10.27,
+       51.01539
+      ]
      ]
     ]
    }
@@ -58,17 +109,34 @@
   {
    "type": "Feature",
    "properties": {
-    "id": "ZP4"
+    "id": "ZP4",
+    "platzhalter": true,
+    "hinweis": "Platzhalter – grobe Lage aus der Programmheft-Skizze, bitte durch digitalisierte Daten ersetzen"
    },
    "geometry": {
     "type": "Polygon",
     "coordinates": [
      [
-      [10.26224, 50.99418],
-      [10.2622, 50.99394],
-      [10.26319, 50.99387],
-      [10.26323, 50.99411],
-      [10.26224, 50.99418]
+      [
+       10.29936,
+       51.03799
+      ],
+      [
+       10.29989,
+       51.03842
+      ],
+      [
+       10.30017,
+       51.03828
+      ],
+      [
+       10.29964,
+       51.03785
+      ],
+      [
+       10.29936,
+       51.03799
+      ]
      ]
     ]
    }
@@ -76,35 +144,34 @@
   {
    "type": "Feature",
    "properties": {
-    "id": "ZP5"
+    "id": "ZP5",
+    "platzhalter": true,
+    "hinweis": "Platzhalter – grobe Lage aus der Programmheft-Skizze, bitte durch digitalisierte Daten ersetzen"
    },
    "geometry": {
     "type": "Polygon",
     "coordinates": [
      [
-      [10.41753, 50.94598],
-      [10.41778, 50.94615],
-      [10.41703, 50.94657],
-      [10.41678, 50.9464],
-      [10.41753, 50.94598]
-     ]
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
-    "id": "ZP6"
-   },
-   "geometry": {
-    "type": "Polygon",
-    "coordinates": [
-     [
-      [10.4261, 50.93127],
-      [10.42622, 50.93105],
-      [10.42717, 50.93125],
-      [10.42704, 50.93147],
-      [10.4261, 50.93127]
+      [
+       10.2569,
+       50.90015
+      ],
+      [
+       10.25727,
+       50.90064
+      ],
+      [
+       10.25759,
+       50.90054
+      ],
+      [
+       10.25722,
+       50.90005
+      ],
+      [
+       10.2569,
+       50.90015
+      ]
      ]
     ]
    }

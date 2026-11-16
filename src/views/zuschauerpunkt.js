@@ -10,7 +10,7 @@ import { basisUrl } from '../app/datenlader.js';
 import { imPlan, planUmschalten } from '../app/meine.js';
 import { toast } from '../app/toast.js';
 import { durchfahrt, sperrIntervalle, spaetesteDurchfahrt } from '../lib/planer.js';
-import { navigationsKnopf, statusPlakette, statusHinweis, leer } from './teile.js';
+import { navigationsKnopf, statusPlakette, statusHinweis, sperrzeitText, leer } from './teile.js';
 
 const JA_NEIN = { ja: 'allg.ja', nein: 'allg.nein', teilweise: 'allg.teilweise' };
 
@@ -30,14 +30,24 @@ function abfahrtHinweis(zp) {
       <div><strong>${t('zp.laeuft_gerade', { wp: wpKurz(n.wp) })}</strong>
       <span>${t('zp.laeuft_text', { erster: zeit(n.df.erster), letzter: zeit(n.df.letzter) })}</span></div></div>`;
   }
-  const zufahrt = sperrIntervalle(d, zp.parkplatz);
-  const s = spaetesteDurchfahrt(zufahrt, n.df.erster - zp.fusswegMin * 60000);
+  const p = zp.parkplatz ? d.ort.get(zp.parkplatz) : null;
+  if (!p) {
+    // Ohne Parkplatz lässt sich keine Anfahrt berechnen – nur die Zeiten nennen.
+    const zeilen = [];
+    if (n.wp.sperrVon !== null) zeilen.push(t('zp.strassen_zu_ab', { zeit: zeitMitTag(n.wp.sperrVon) }));
+    zeilen.push(t('zp.ohne_parkplatz_text'));
+    return html`<div class="hinweis-karte hinweis-orange">${icon('uhr', 22)}
+      <div><strong>${t('zp.erstes_auto_um', { zeit: zeitMitTag(n.df.erster) })}</strong><span>${zeilen.join(' ')}</span>
+      <span class="klein">${t('zp.fuer_wp', { wp: wpKurz(n.wp) })}</span></div></div>`;
+  }
+  const zufahrt = sperrIntervalle(d, p.id);
+  const s = spaetesteDurchfahrt(zufahrt, n.df.erster - (zp.fusswegMin || 0) * 60000);
   const start = d.ort.get(d.planerStart);
-  const fahr = d.fahrzeit(d.planerStart, zp.parkplatz);
-  const p = d.ort.get(zp.parkplatz);
+  const fahr = d.fahrzeit(d.planerStart, p.id);
   const zeilen = [];
   if (s.grund) zeilen.push(t('zp.zufahrt_schliesst', { p: p.id, zeit: zeit(s.zeit), wp: wpKurz(d.wp.get(s.grund.wp)) }));
-  else zeilen.push(t('zp.am_parkplatz_sein', { p: p.id, zeit: zeit(s.zeit), min: zp.fusswegMin }));
+  else if (zp.fusswegMin !== null) zeilen.push(t('zp.am_parkplatz_sein', { p: p.id, zeit: zeit(s.zeit), min: zp.fusswegMin }));
+  else zeilen.push(t('zp.am_parkplatz_plus_fussweg', { p: p.id, zeit: zeit(s.zeit) }));
   if (fahr !== null && start) zeilen.push(t('zp.fahrzeit_von', { ort: feld(start, 'name'), min: fahr }));
   const titel =
     fahr !== null && start
@@ -56,8 +66,9 @@ export const zuschauerpunktAnsicht = {
     const zp = d.zp.get(id);
     if (!zp) return html`<div class="seite">${leer(t('allg.nicht_gefunden'))}<a class="knopf knopf-dunkel" href="#/karte">${t('tab.karte')}</a></div>`;
     const s = d.strecken.get(zp.strecke);
-    const p = d.ort.get(zp.parkplatz);
-    const blockiert = sperrIntervalle(d, zp.parkplatz).length > 0;
+    const p = zp.parkplatz ? d.ort.get(zp.parkplatz) : null;
+    const blockiert = p ? sperrIntervalle(d, p.id).length > 0 : false;
+    const zpZiel = `${t('zp.abk')} ${zp.kurz} · ${feld(zp, 'name')}`;
     return html`<div class="steckbrief">
       <div class="foto ${zp.foto ? '' : 'foto-platzhalter'}">
         ${zp.foto ? html`<img src="${new URL(`daten/${zp.foto}`, basisUrl()).href}" alt="${feld(zp, 'name')}" loading="lazy">` : html`<span>${t('zp.kein_foto')}</span>`}
@@ -73,8 +84,11 @@ export const zuschauerpunktAnsicht = {
         </div>
         ${abfahrtHinweis(zp)}
         <div class="raster-2">
-          <div class="kachel"><span class="kachel-label">${t('zp.fussweg_ab_label', { p: p.id })}</span>
-            <span class="kachel-wert">${zp.fusswegM ? `${zahl(zp.fusswegM / 1000, 1)} km · ` : ''}${zp.fusswegMin} min</span>
+          <div class="kachel"><span class="kachel-label">${p ? t('zp.fussweg_ab_label', { p: p.id }) : t('zp.fussweg')}</span>
+            <span class="kachel-wert">${p && (zp.fusswegM || zp.fusswegMin !== null)
+              ? `${zp.fusswegM ? `${zahl(zp.fusswegM / 1000, 1)} km` : ''}${zp.fusswegM && zp.fusswegMin !== null ? ' · ' : ''}${zp.fusswegMin !== null ? `${zp.fusswegMin} min` : ''}`
+              : '–'}</span>
+            ${p ? '' : html`<span class="kachel-unter">${t('zp.kein_parkplatz')}</span>`}
             ${zp.hoehenmeter ? html`<span class="kachel-unter">+${zp.hoehenmeter} ${t('zp.hoehenmeter')}</span>` : ''}</div>
           <div class="kachel"><span class="kachel-label">${t('zp.untergrund')}</span><span class="kachel-wert">${feld(zp, 'untergrund') || '–'}</span></div>
           <div class="kachel"><span class="kachel-label">${t('zp.barrierefrei')}</span>
@@ -94,7 +108,7 @@ export const zuschauerpunktAnsicht = {
                 <div class="tabelle-haupt">
                   <span class="tabelle-titel"><strong>${wpKurz(w)}</strong> ${statusPlakette(wid)}</span>
                   <span>${t('zp.erstes_auto_um', { zeit: zeitMitTag(df.erster) })}</span>
-                  <span class="klein">${t('zp.letztes_auto_um', { zeit: zeit(df.letzter) })} · ${t('zp.gesperrt', { von: zeit(w.sperrVon), bis: zeit(w.sperrBis) })}</span>
+                  <span class="klein">${t('zp.letztes_auto_um', { zeit: zeit(df.letzter) })} · ${sperrzeitText(w)}</span>
                   ${statusHinweis(wid)}
                 </div>
                 <button type="button" class="knopf-klein ${drin ? 'an' : ''}" data-aktion="plan" data-zp="${zp.id}" data-wp="${wid}" aria-pressed="${drin ? 'true' : 'false'}">
@@ -106,7 +120,9 @@ export const zuschauerpunktAnsicht = {
           ${blockiert ? html`<p class="klein">${t('zp.parkplatz_blockiert', { p: p.id })}</p>` : ''}
         </section>
         <div class="knopf-spalte">
-          ${navigationsKnopf(p.lage, `${p.id} · ${feld(p, 'name')}`, html`${icon('navi', 20)} ${t('allg.navigation_zu', { ziel: `${p.id} · ${feld(p, 'name')}` })}`, 'knopf knopf-akzent gross')}
+          ${p
+            ? navigationsKnopf(p.lage, `${p.id} · ${feld(p, 'name')}`, html`${icon('navi', 20)} ${t('allg.navigation_zu', { ziel: `${p.id} · ${feld(p, 'name')}` })}`, 'knopf knopf-akzent gross')
+            : navigationsKnopf(zp.mitte, zpZiel, html`${icon('navi', 20)} ${t('allg.navigation_zu', { ziel: zpZiel })}`, 'knopf knopf-akzent gross')}
           <a class="knopf knopf-rahmen gross" href="#/karte/zp/${zp.id}">${icon('karte', 20)} ${t('zp.auf_karte')}</a>
         </div>
       </div>

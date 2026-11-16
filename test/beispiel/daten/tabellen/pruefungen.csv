@@ -1,0 +1,7 @@
+wp;name_de;name_en;strecke;tag;erstes_auto;sperrung_von;sperrung_bis;intervall_min;schnitt_kmh;laenge_km
+WP1;Hohe Sonne 1;Hohe Sonne 1;HS;fr;16:35;15:35;18:05;1;85;
+WP2;Krauthäuser Loch 1;Krauthäuser Loch 1;KL;fr;17:20;16:20;18:50;1;80;
+WP3;Flachsgrund 1;Flachsgrund 1;FG;sa;08:35;07:35;10:05;1;75;
+WP4;Hohe Sonne 2;Hohe Sonne 2;HS;sa;09:15;08:15;10:45;1;85;
+WP5;Flachsgrund 2;Flachsgrund 2;FG;sa;11:20;10:20;12:50;1;75;
+WP6;Krauthäuser Loch 2;Krauthäuser Loch 2;KL;sa;12:05;11:05;13:35;1;80;

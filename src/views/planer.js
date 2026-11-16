@@ -33,10 +33,12 @@ function uebergang(s) {
   const d = zustand.daten;
   const zp = d.zp.get(s.zp);
   let text;
-  if (u.gleicherParkplatz) {
+  if (u.gleicherPunkt) {
+    text = t('planer.uebergang_bleiben');
+  } else if (u.gleicherParkplatz) {
     text = t('planer.uebergang_zu_fuss', { fuss: u.fussMin, p: zp.parkplatz });
   } else if (u.ankunft === null) {
-    text = t('planer.uebergang_unbekannt', { frei: zeit(u.freiAb) });
+    text = t('planer.uebergang_unbekannt', { zeit: zeit(u.freiAb) });
   } else {
     const frei = u.freiWegen ? t('planer.frei_ab_sperrung', { zeit: zeit(u.freiAb), wp: wpKurz(d.wp.get(u.freiWegen)) }) : t('planer.frei_ab', { zeit: zeit(u.freiAb) });
     text = `${frei} · ${t('planer.weg', { fuss: u.fussMin, fahr: u.fahrMin, p: zp.parkplatz, an: zeit(u.ankunft) })}`;
@@ -48,7 +50,9 @@ function uebergang(s) {
       ? t('planer.wechsel_nicht')
       : s.machbar === null
         ? t('planer.fahrzeit_unbekannt')
-        : t('planer.wechsel_ok', { min: s.pufferMin });
+        : u.gleicherPunkt
+          ? t('planer.bleiben')
+          : t('planer.wechsel_ok', { min: s.pufferMin });
   return html`<div class="uebergang ${s.machbar === false ? 'schlecht' : ''}">
     <span class="uebergang-kopf">${kopf}</span>
     <span class="uebergang-text">${text}</span>
@@ -116,10 +120,11 @@ function icsHerunterladen(tagId) {
   const ereignisse = schritte.map((s) => {
     const zp = d.zp.get(s.zp);
     const wp = d.wp.get(s.wp);
-    const p = d.ort.get(zp.parkplatz);
+    const p = zp.parkplatz ? d.ort.get(zp.parkplatz) : null;
     const zeilen = [];
     if (s.abfahrtSpaetestens) zeilen.push(t('planer.losfahren_bis', { zeit: zeit(s.abfahrtSpaetestens) }));
-    zeilen.push(t('ics.parkplatz', { p: `${p.id} · ${feld(p, 'name')}`, zeit: zeit(s.ankunftSpaetestens), fuss: zp.fusswegMin }));
+    if (p && zp.fusswegMin !== null) zeilen.push(t('ics.parkplatz', { p: `${p.id} · ${feld(p, 'name')}`, zeit: zeit(s.ankunftSpaetestens), fuss: zp.fusswegMin }));
+    else if (p) zeilen.push(t('ics.parkplatz_ohne_fussweg', { p: `${p.id} · ${feld(p, 'name')}`, zeit: zeit(s.ankunftSpaetestens) }));
     zeilen.push(t('ics.letztes', { zeit: zeit(s.letzter) }));
     return {
       uid: `${d.veranstaltung.jahr}-${s.wp}-${s.zp}@rallye-zuschauer-app`,

@@ -1,4 +1,5 @@
-// Prüft den Daten-Build mit den Beispieldaten und mit absichtlich fehlerhaften Kopien.
+// Prüft den Daten-Build mit den Beispieldaten (test/beispiel/daten), mit absichtlich fehlerhaften
+// Kopien davon und mit den echten Projektdaten (daten/).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -8,10 +9,12 @@ import { fileURLToPath } from 'node:url';
 import { datenBauen } from '../scripts/daten-bauen.mjs';
 
 const PROJEKT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+// Fester Beispieldatensatz (fiktive Rallye 2027) – unabhängig davon, was gerade in daten/ steht
+const BEISPIEL = path.join(PROJEKT, 'test', 'beispiel');
 
 function kopie() {
   const ziel = fs.mkdtempSync(path.join(os.tmpdir(), 'rallye-daten-'));
-  fs.cpSync(path.join(PROJEKT, 'daten'), path.join(ziel, 'daten'), { recursive: true });
+  fs.cpSync(path.join(BEISPIEL, 'daten'), path.join(ziel, 'daten'), { recursive: true });
   return ziel;
 }
 const datei = (w, rel) => path.join(w, 'daten', rel);
@@ -24,8 +27,16 @@ const ersetzen = (w, rel, alt, neu) => {
 const bauen = (w) => datenBauen({ wurzel: w, schreiben: false });
 const enthaelt = (liste, teil) => liste.some((x) => x.includes(teil));
 
-test('Beispieldaten bauen fehlerfrei', () => {
+test('Projektdaten (daten/) bauen fehlerfrei', () => {
   const erg = datenBauen({ wurzel: PROJEKT, schreiben: false });
+  assert.deepEqual(erg.fehler, []);
+  assert.equal(erg.ok, true);
+  assert.ok(erg.programm.pruefungen.length > 0);
+  assert.ok(erg.programm.zuschauerpunkte.length > 0);
+});
+
+test('Beispieldaten bauen fehlerfrei', () => {
+  const erg = datenBauen({ wurzel: BEISPIEL, schreiben: false });
   assert.deepEqual(erg.fehler, []);
   assert.equal(erg.ok, true);
   assert.equal(erg.programm.pruefungen.length, 6);
@@ -126,7 +137,7 @@ test('Sperrung nach dem ersten Auto ist ein Fehler', () => {
 });
 
 test('Kartenansichten: Standard zuerst, Luftbild braucht Ebene und Quelle', () => {
-  const erg = datenBauen({ wurzel: PROJEKT, schreiben: false });
+  const erg = datenBauen({ wurzel: BEISPIEL, schreiben: false });
   assert.equal(erg.programm.karte.stil, 'https://tiles.openfreemap.org/styles/positron');
   assert.deepEqual(erg.programm.karte.stile.map((s) => s.id), ['schlicht', 'entdecken', 'strassen', 'luftbild']);
   assert.equal(erg.programm.karte.stile[3].luftbild.ebene, 'th_dop');
@@ -157,4 +168,51 @@ test('Ältere Einstellungen mit nur „karte.stil“ funktionieren weiter', () =
   assert.deepEqual(erg.fehler, []);
   assert.equal(erg.programm.karte.stile.length, 1);
   assert.equal(erg.programm.karte.stil, e.karte.stil);
+});
+
+test('Sperrzeiten sind optional – aber nur beide zusammen', () => {
+  const w = kopie();
+  ersetzen(w, 'tabellen/pruefungen.csv', 'WP1;Hohe Sonne 1;Hohe Sonne 1;HS;fr;16:35;15:35;18:05;', 'WP1;Hohe Sonne 1;Hohe Sonne 1;HS;fr;16:35;;;');
+  const erg = bauen(w);
+  assert.deepEqual(erg.fehler, []);
+  const wp1 = erg.programm.pruefungen.find((x) => x.id === 'WP1');
+  assert.equal(wp1.sperrVon, null);
+  assert.equal(wp1.sperrBis, null);
+  assert.ok(enthaelt(erg.warnungen, 'WP1: Keine Sperrzeiten eingetragen'), erg.warnungen.join('\n'));
+
+  const w2 = kopie();
+  ersetzen(w2, 'tabellen/pruefungen.csv', 'WP1;Hohe Sonne 1;Hohe Sonne 1;HS;fr;16:35;15:35;18:05;', 'WP1;Hohe Sonne 1;Hohe Sonne 1;HS;fr;16:35;15:35;;');
+  const halb = bauen(w2);
+  assert.equal(halb.ok, false);
+  assert.ok(enthaelt(halb.fehler, 'beide Sperrzeiten'), halb.fehler.join('\n'));
+});
+
+test('Zuschauerpunkt ohne Parkplatz und Fußweg ist erlaubt (mit Hinweis)', () => {
+  const w = kopie();
+  ersetzen(w, 'tabellen/zuschauerpunkte.csv', 'ZP1;Kehre Mariental;Mariental hairpin;HS;;P1;950;14;', 'ZP1;Kehre Mariental;Mariental hairpin;HS;;;;;');
+  ersetzen(w, 'tabellen/zuschauerpunkte.csv', ';P2;570;9;', ';P2;570;;');
+  const erg = bauen(w);
+  assert.deepEqual(erg.fehler, []);
+  const zp1 = erg.programm.zuschauerpunkte.find((z) => z.id === 'ZP1');
+  const zp2 = erg.programm.zuschauerpunkte.find((z) => z.id === 'ZP2');
+  assert.equal(zp1.parkplatz, null);
+  assert.equal(zp1.fusswegMin, null);
+  assert.equal(zp2.parkplatz, 'P2');
+  assert.equal(zp2.fusswegMin, null);
+  assert.ok(enthaelt(erg.warnungen, '„ZP1“: Kein Parkplatz eingetragen'), erg.warnungen.join('\n'));
+  assert.ok(enthaelt(erg.warnungen, '„ZP2“: „fussweg_min“ fehlt'), erg.warnungen.join('\n'));
+});
+
+test('Platzhalter-Linien: Länge wird nicht als echte Angabe ausgegeben', () => {
+  const w = kopie();
+  const p = datei(w, 'karte/strecken.geojson');
+  const st = JSON.parse(fs.readFileSync(p, 'utf8'));
+  for (const f of st.features) f.properties.platzhalter = true;
+  fs.writeFileSync(p, JSON.stringify(st));
+  const erg = bauen(w);
+  assert.deepEqual(erg.fehler, []);
+  assert.ok(enthaelt(erg.warnungen, 'Platzhalter-Geometrien'), erg.warnungen.join('\n'));
+  // In den Beispieldaten ist keine WP-Länge angegeben → alle Längen unsicher, Strecken ohne Länge
+  assert.ok(erg.programm.pruefungen.every((x) => x.laengeUnsicher === true));
+  assert.ok(erg.programm.strecken.every((s) => s.laengeKm === null));
 });

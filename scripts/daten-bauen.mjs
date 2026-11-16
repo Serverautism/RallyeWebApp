@@ -37,8 +37,8 @@ const SCHEMATA = {
       strecke: { pflicht: true },
       tag: { pflicht: true },
       erstes_auto: { pflicht: true, typ: 'uhrzeit' },
-      sperrung_von: { pflicht: true, typ: 'uhrzeit' },
-      sperrung_bis: { pflicht: true, typ: 'uhrzeit' },
+      sperrung_von: { typ: 'uhrzeit' },
+      sperrung_bis: { typ: 'uhrzeit' },
       intervall_min: { typ: 'zahl', standard: 1 },
       schnitt_kmh: { typ: 'zahl', standard: 80 },
       laenge_km: { typ: 'zahl' },
@@ -64,9 +64,9 @@ const SCHEMATA = {
       name_en: {},
       strecke: { pflicht: true },
       km: { typ: 'zahl' },
-      parkplatz: { pflicht: true },
+      parkplatz: {},
       fussweg_m: { typ: 'zahl' },
-      fussweg_min: { pflicht: true, typ: 'zahl' },
+      fussweg_min: { typ: 'zahl' },
       hoehenmeter: { typ: 'zahl' },
       untergrund_de: {},
       untergrund_en: {},
@@ -350,7 +350,8 @@ function geoLesen(wurzel, name, m) {
       m.fehlerBei(rel, null, `„${id}“: Eine Linie braucht mindestens 2 Punkte.`);
       return;
     }
-    ergebnis.push({ id, geometry: g });
+    // "platzhalter": true markiert grobe Platzhalter-Geometrien (z. B. bevor die Karte digitalisiert ist)
+    ergebnis.push({ id, geometry: g, platzhalter: f.properties?.platzhalter === true });
   });
   return ergebnis;
 }
@@ -535,16 +536,30 @@ export function datenBauen({ wurzel = PROJEKT, ausgabe, schreiben = true } = {})
     }
   }
 
+  // Platzhalter-Geometrien sammeln (eine Warnung für alles)
+  const platzhalterListe = Object.entries(geo)
+    .map(([name, liste]) => [name, liste.filter((f) => f.platzhalter).map((f) => f.id)])
+    .filter(([, ids]) => ids.length);
+  if (platzhalterListe.length) {
+    m.warnungBei(
+      'daten/karte/',
+      null,
+      `Platzhalter-Geometrien („platzhalter“: true) – die Karte zeigt hier nur eine grobe Lage, Längen werden daraus nicht angezeigt: ${platzhalterListe.map(([name, ids]) => `${name}: ${ids.join(', ')}`).join('; ')}.`,
+    );
+  }
+
   // --- Strecken -----------------------------------------------------------
   const streckenRel = 'daten/tabellen/strecken.csv';
   const strecken = eindeutig(tab.strecken, 'id', streckenRel);
   const streckenLaenge = new Map();
+  const platzhalterStrecken = new Set();
   for (const [id, s] of strecken) {
     const g = geoMap.strecken.get(id);
     if (!g) {
       m.fehlerBei(streckenRel, s._zeile, `Zur Strecke „${id}“ gibt es keine Linie in daten/karte/strecken.geojson.`);
       continue;
     }
+    if (g.platzhalter) platzhalterStrecken.add(id);
     streckenLaenge.set(id, turf.length(turf.lineString(g.geometry.coordinates), { units: 'kilometers' }));
   }
   for (const id of geoMap.strecken.keys()) {
@@ -580,13 +595,25 @@ export function datenBauen({ wurzel = PROJEKT, ausgabe, schreiben = true } = {})
     if (!(w.intervall_min > 0)) m.fehlerBei(wpRel, w._zeile, '„intervall_min“ muss größer als 0 sein.');
     if (!(w.schnitt_kmh > 0 && w.schnitt_kmh < 250)) m.fehlerBei(wpRel, w._zeile, '„schnitt_kmh“ muss zwischen 0 und 250 liegen.');
     const erstes = lokalZuUtcMs(tag.datum, w.erstes_auto, zeitzone);
-    const von = lokalZuUtcMs(tag.datum, w.sperrung_von, zeitzone);
-    const bis = lokalZuUtcMs(tag.datum, w.sperrung_bis, zeitzone);
-    if (erstes === null || von === null || bis === null) continue;
-    if (bis <= von) m.fehlerBei(wpRel, w._zeile, 'Die Sperrung muss enden, nachdem sie begonnen hat (sperrung_bis > sperrung_von).');
-    if (von >= erstes) m.fehlerBei(wpRel, w._zeile, 'Die Sperrung muss vor dem ersten Auto beginnen (sperrung_von < erstes_auto).');
+    if (erstes === null) continue;
+    // Sperrzeiten sind optional – aber nur beide zusammen.
+    const mitSperrung = w.sperrung_von !== null || w.sperrung_bis !== null;
+    if (mitSperrung && (w.sperrung_von === null || w.sperrung_bis === null)) {
+      m.fehlerBei(wpRel, w._zeile, 'Bitte beide Sperrzeiten eintragen (sperrung_von und sperrung_bis) oder beide leer lassen.');
+      continue;
+    }
+    const von = mitSperrung ? lokalZuUtcMs(tag.datum, w.sperrung_von, zeitzone) : null;
+    const bis = mitSperrung ? lokalZuUtcMs(tag.datum, w.sperrung_bis, zeitzone) : null;
+    if (mitSperrung && (von === null || bis === null)) continue;
+    if (!mitSperrung) {
+      m.warnungBei(wpRel, w._zeile, `${id}: Keine Sperrzeiten eingetragen – die App zeigt „Sperrzeit nicht angegeben“, und der Tagesplaner kann gesperrte Zufahrten nicht berücksichtigen.`);
+    } else {
+      if (bis <= von) m.fehlerBei(wpRel, w._zeile, 'Die Sperrung muss enden, nachdem sie begonnen hat (sperrung_bis > sperrung_von).');
+      if (von >= erstes) m.fehlerBei(wpRel, w._zeile, 'Die Sperrung muss vor dem ersten Auto beginnen (sperrung_von < erstes_auto).');
+    }
     const laengeGeo = streckenLaenge.get(w.strecke);
-    if (w.laenge_km && laengeGeo && Math.abs(w.laenge_km - laengeGeo) / w.laenge_km > 0.15) {
+    const platzhalter = platzhalterStrecken.has(w.strecke);
+    if (w.laenge_km && laengeGeo && !platzhalter && Math.abs(w.laenge_km - laengeGeo) / w.laenge_km > 0.15) {
       m.warnungBei(wpRel, w._zeile, `Angegebene Länge ${w.laenge_km} km weicht stark von der Linie in der Karte ab (${laengeGeo.toFixed(2)} km).`);
     }
     wpAus.push({
@@ -597,11 +624,13 @@ export function datenBauen({ wurzel = PROJEKT, ausgabe, schreiben = true } = {})
       strecke: w.strecke,
       tag: w.tag,
       erstesAuto: isoMitVersatz(erstes, zeitzone),
-      sperrVon: isoMitVersatz(von, zeitzone),
-      sperrBis: isoMitVersatz(bis, zeitzone),
+      sperrVon: von !== null ? isoMitVersatz(von, zeitzone) : null,
+      sperrBis: bis !== null ? isoMitVersatz(bis, zeitzone) : null,
       intervallMin: w.intervall_min,
       schnittKmh: w.schnitt_kmh,
       laengeKm: rund(w.laenge_km ?? laengeGeo ?? 0, 2),
+      // Länge nur aus einer Platzhalter-Linie geschätzt → in der App nicht anzeigen
+      laengeUnsicher: w.laenge_km === null && platzhalter,
       _ms: { erstes, von, bis },
       _zeile: w._zeile,
     });
@@ -648,7 +677,8 @@ export function datenBauen({ wurzel = PROJEKT, ausgabe, schreiben = true } = {})
 
   // Sperrung muss bis nach dem letzten Auto dauern
   for (const w of wpAus) {
-    const laenge = streckenLaenge.get(w.strecke) ?? 0;
+    if (w._ms.bis === null) continue;
+    const laenge = w.laengeKm || (streckenLaenge.get(w.strecke) ?? 0);
     const letztesAmZiel = ankunftBeiKm({ erstesAuto: w._ms.erstes, intervallMin: w.intervallMin, schnittKmh: w.schnittKmh }, laenge, starterAnzahl);
     if (letztesAmZiel > w._ms.bis) {
       const t = isoMitVersatz(letztesAmZiel, zeitzone).slice(11, 16);
@@ -680,9 +710,16 @@ export function datenBauen({ wurzel = PROJEKT, ausgabe, schreiben = true } = {})
       m.fehlerBei(zpRel, z._zeile, `Strecke „${z.strecke}“ gibt es nicht.`);
       continue;
     }
-    const p = orte.get(z.parkplatz);
-    if (!p) m.fehlerBei(zpRel, z._zeile, `Parkplatz „${z.parkplatz}“ gibt es nicht in ${orteRel}.`);
-    else if (p.typ !== 'parkplatz') m.warnungBei(zpRel, z._zeile, `„${z.parkplatz}“ ist kein Ort vom Typ „parkplatz“.`);
+    if (z.parkplatz) {
+      const p = orte.get(z.parkplatz);
+      if (!p) m.fehlerBei(zpRel, z._zeile, `Parkplatz „${z.parkplatz}“ gibt es nicht in ${orteRel}.`);
+      else if (p.typ !== 'parkplatz') m.warnungBei(zpRel, z._zeile, `„${z.parkplatz}“ ist kein Ort vom Typ „parkplatz“.`);
+      if (z.fussweg_min === null) {
+        m.warnungBei(zpRel, z._zeile, `„${id}“: „fussweg_min“ fehlt – die App zeigt den Fußweg ab ${z.parkplatz} als unbekannt, der Tagesplaner rechnet mit 0 Minuten.`);
+      }
+    } else {
+      m.warnungBei(zpRel, z._zeile, `„${id}“: Kein Parkplatz eingetragen – die Navigation führt direkt zum Zuschauerpunkt, und der Tagesplaner kann keine Anfahrt berechnen.`);
+    }
     if (z.fussweg_min !== null && z.fussweg_min < 0) m.fehlerBei(zpRel, z._zeile, '„fussweg_min“ darf nicht negativ sein.');
 
     const flaeche = { type: 'Feature', properties: {}, geometry: g.geometry };
@@ -723,7 +760,7 @@ export function datenBauen({ wurzel = PROJEKT, ausgabe, schreiben = true } = {})
       name_en: z.name_en || null,
       strecke: z.strecke,
       km: rund(z.km ?? kmGeo, 2),
-      parkplatz: z.parkplatz,
+      parkplatz: z.parkplatz || null,
       fusswegM: z.fussweg_m,
       fusswegMin: z.fussweg_min,
       hoehenmeter: z.hoehenmeter,
@@ -877,7 +914,7 @@ export function datenBauen({ wurzel = PROJEKT, ausgabe, schreiben = true } = {})
   }
 
   // --- Abschluss -------------------------------------------------------------
-  if (v.beispieldaten) m.warnungBei(einstRel, null, '„beispieldaten“ ist true – die App zeigt einen Hinweis „Beispieldaten“. Für echte Daten auf false setzen.');
+  if (v.beispieldaten) m.warnungBei(einstRel, null, `„beispieldaten“ ist true – die App zeigt den Hinweis „${v.hinweis_de || 'Beispieldaten'}“. Für echte Daten auf false setzen.`);
 
   zusammenfassung.unshift(
     `${wpAus.length} Wertungsprüfungen auf ${strecken.size} Strecken, ${zpAus.length} Zuschauerpunkte, ${orte.size} Orte, ${geo.sperrzonen.length} Sperrzonen`,
@@ -898,6 +935,8 @@ export function datenBauen({ wurzel = PROJEKT, ausgabe, schreiben = true } = {})
       veranstalter: v.veranstalter || null,
       zeitzone,
       beispieldaten: Boolean(v.beispieldaten),
+      hinweis_de: v.hinweis_de || null,
+      hinweis_en: v.hinweis_en || null,
     },
     tage: tage.map((t) => ({ id: t.id, datum: t.datum, name_de: t.name_de, name_en: t.name_en || null })),
     karte: {
@@ -931,7 +970,10 @@ export function datenBauen({ wurzel = PROJEKT, ausgabe, schreiben = true } = {})
       belag_en: s.belag_en || null,
       hinweis_de: s.hinweis_de || null,
       hinweis_en: s.hinweis_en || null,
-      laengeKm: rund(streckenLaenge.get(s.id) ?? 0, 2),
+      // Bei Platzhalter-Linien nur eine angegebene WP-Länge verwenden (sonst null = unbekannt)
+      laengeKm: platzhalterStrecken.has(s.id)
+        ? (wpAus.find((w) => w.strecke === s.id && !w.laengeUnsicher)?.laengeKm ?? null)
+        : rund(streckenLaenge.get(s.id) ?? 0, 2),
       wps: wpAus.filter((w) => w.strecke === s.id).map((w) => w.id),
     })),
     pruefungen: wpAus.map(ohneIntern),

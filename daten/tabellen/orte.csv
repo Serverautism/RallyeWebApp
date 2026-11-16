@@ -1,21 +1,9 @@
 id;typ;name_de;name_en;beschreibung_de;beschreibung_en;gesperrt_mit;stempel
-P1;parkplatz;Wanderparkplatz Mariental;Mariental hiking car park;Ca. 80 Plätze, Zufahrt über das Mariental.;Approx. 80 spaces, access via Mariental.;;
-P2;parkplatz;Parkplatz Hohe Sonne (B 19);Hohe Sonne car park (B 19);Die Zufahrt kreuzt die WP-Strecke und ist während WP 1 und WP 4 gesperrt.;The access road crosses the stage and is closed during SS 1 and SS 4.;WP1 WP4;
-P3;parkplatz;Krauthausen Sportplatz;Krauthausen sports ground;Ca. 150 Plätze.;Approx. 150 spaces.;;
-P4;parkplatz;Wiesenparkplatz Krauthäuser Loch;Krauthäuser Loch meadow parking;Zufahrt über die WP-Strecke, während WP 2 und WP 6 gesperrt.;Access via the stage road, closed during SS 2 and SS 6.;WP2 WP6;
-P5;parkplatz;Farnroda Festwiese;Farnroda fairground;Ca. 200 Plätze.;Approx. 200 spaces.;;
-P6;parkplatz;Waldparkplatz Flachsgrund;Flachsgrund forest car park;Zufahrt während WP 3 und WP 5 gesperrt.;Access closed during SS 3 and SS 5.;WP3 WP5;
-S1;servicepark;Servicepark & Parc Fermé (AWE);Service park & parc fermé (AWE);Automobile Welt Eisenach. Hier arbeiten die Teams in festen Zeitfenstern an den Autos.;Automobile Welt Eisenach. The teams work on the cars here in fixed time slots.;;ja
-R1;info;Rallyezentrum (AWE Haupttor);Rally HQ (AWE main gate);Rennbahn 8, 99817 Eisenach. Dokumenten- und technische Abnahme.;Rennbahn 8, 99817 Eisenach. Document check and scrutineering.;;
-M1;rampe;Start- und Zielrampe Marktplatz;Start and finish ramp, market square;Start am Freitag, Zielankunft und Siegerehrung am Samstag.;Start on Friday, finish and prize-giving on Saturday.;;ja
-WC1;wc;WC Hohe Sonne;Toilets Hohe Sonne;;;;
-WC2;wc;WC Krauthäuser Loch;Toilets Krauthäuser Loch;;;;
-WC3;wc;WC Flachsgrund;Toilets Flachsgrund;;;;
-WC4;wc;WC Servicepark;Toilets service park;;;;
-I1;imbiss;Imbiss Hohe Sonne;Food stand Hohe Sonne;Bratwurst und Getränke.;Bratwurst and drinks.;;
-I2;imbiss;Imbiss Flachsgrund;Food stand Flachsgrund;;;;
-I3;imbiss;Imbiss Servicepark;Food stand service park;;;;
-SAN1;sanitaeter;Sanitäter Hohe Sonne;First aid Hohe Sonne;;;;
-SAN2;sanitaeter;Sanitäter Krauthäuser Loch;First aid Krauthäuser Loch;;;;
-SAN3;sanitaeter;Sanitäter Flachsgrund;First aid Flachsgrund;;;;
-BUS1;shuttle;Shuttle-Haltestelle Markt;Shuttle stop, market square;Fahrplan folgt.;Timetable to follow.;;
+S1;servicepark;Servicepark Festplatz Spicke;Service park Festplatz Spicke;Adam-Opel-Straße, Eisenach. Start und Ziel beider Tage, Service und Zeitkontrolle (ZK). Im Bereich gilt Tempo 30.;Adam-Opel-Straße, Eisenach. Start and finish on both days, service and time control (TC). 30 km/h speed limit in the area.;;
+R1;info;Rallye HQ;Rally HQ;Rallyezentrale am Festplatz Spicke.;Rally headquarters at Festplatz Spicke.;;
+R2;info;Zelt DA / TA;Tent DA / TA;Dokumentenabnahme (DA) und Technische Abnahme (TA) am Festplatz Spicke.;Document check (DA) and scrutineering (TA) at Festplatz Spicke.;;
+WC1;wc;WC Festplatz Spicke;Toilets Festplatz Spicke;;;;
+P1;parkplatz;Parkplatz am Start Krauthäuser Loch (B 19);Car park at the Krauthäuser Loch start (B 19);Im Programmheft am Start der WP 3/5 eingezeichnet.;Shown at the start of SS 3/5 in the programme.;;
+P2;parkplatz;Parkplatz Adam-Opel-Straße;Car park Adam-Opel-Straße;Am Festplatz Spicke.;At Festplatz Spicke.;;
+H1;sonstiges;Hängerplatz;Trailer park;Abstellplatz für die Anhänger der Teams an der Adam-Opel-Straße.;Parking for the teams' trailers on Adam-Opel-Straße.;;
+M1;sonstiges;Teampräsentation Eisenacher Markt;Team presentation, Eisenach market square;Teampräsentation am Samstag ab 13:00 Uhr, erstes Fahrzeug ab ca. 13:51 Uhr.;Team presentation on Saturday from 13:00, first car from approx. 13:51.;;

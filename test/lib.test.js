@@ -12,6 +12,7 @@ import {
   fruehesteFreigabe,
   spaetesteDurchfahrt,
   sperrIntervalle,
+  sperrzeitenUnbekannt,
   wpZeitStatus,
 } from '../src/lib/planer.js';
 import { startSprache } from '../src/lib/sprache.js';
@@ -250,6 +251,51 @@ test('Status laut Zeitplan: geplant → gesperrt → läuft → beendet', () => 
   // Endet die Sperrung früher als gerechnet, ist die WP spätestens dann beendet
   d.wp.get('WP3').sperrBis = t('08:50');
   assert.equal(wpZeitStatus(d, 'WP3', t('08:50')).status, 'beendet');
+});
+
+test('Ohne Sperrzeiten: kein Status „gesperrt“, Zufahrt gilt als unbekannt', () => {
+  const d = testDaten();
+  const wp3 = d.wp.get('WP3');
+  wp3.laengeKm = 7.5;
+  wp3.sperrVon = null;
+  wp3.sperrBis = null;
+  assert.equal(wpZeitStatus(d, 'WP3', t('08:00')).status, 'geplant');
+  const s = wpZeitStatus(d, 'WP3', t('08:40'));
+  assert.equal(s.status, 'laeuft');
+  assert.equal(s.ende, t('09:08')); // ohne Sperrende zählt nur das letzte Auto
+  assert.equal(wpZeitStatus(d, 'WP3', t('09:10')).status, 'beendet');
+  // P6 wird von WP3 gesperrt – ohne Zeiten kein Intervall, aber „unbekannt“
+  assert.deepEqual(sperrIntervalle(d, 'P6'), []);
+  assert.equal(sperrzeitenUnbekannt(d, 'P6'), true);
+  assert.equal(sperrzeitenUnbekannt(d, 'P2'), false);
+  assert.deepEqual(sperrIntervalle(d, null), []);
+});
+
+test('Planer: Zuschauerpunkt ohne Parkplatz und derselbe Punkt zweimal', () => {
+  const d = testDaten();
+  d.zp.set('ZP9', { id: 'ZP9', strecke: 'KL', km: 1.0, parkplatz: null, fusswegMin: null });
+  d.zp.set('ZP10', { id: 'ZP10', strecke: 'KL', km: 2.0, parkplatz: null, fusswegMin: null });
+  d.wp.set('WP7', { id: 'WP7', strecke: 'KL', erstesAuto: t('12:20'), sperrVon: null, sperrBis: null, intervallMin: 1, schnittKmh: 80 });
+  // Erster Schritt ohne Parkplatz: keine Fahrzeit, aber kein Absturz
+  const erster = planBerechnen(d, [{ zp: 'ZP9', wp: 'WP6' }], 'S1').schritte[0];
+  assert.equal(erster.fahrMin, null);
+  assert.equal(erster.abfahrtSpaetestens, null);
+  // Zwei Punkte ohne Parkplatz sind NICHT „gleicher Parkplatz“
+  const zwei = planBerechnen(d, [{ zp: 'ZP9', wp: 'WP6' }, { zp: 'ZP10', wp: 'WP7' }], 'S1').schritte;
+  assert.notEqual(zwei[1].uebergang.gleicherParkplatz, true);
+  // WP7 beginnt, bevor WP6 an ZP9 vorbei ist → Überschneidung, auch ohne bekannte Fahrzeit
+  assert.equal(zwei[1].machbar, false);
+  assert.equal(zwei[1].grund, 'ueberschneidung');
+  d.wp.get('WP7').erstesAuto = t('14:00');
+  const spaeter = planBerechnen(d, [{ zp: 'ZP9', wp: 'WP6' }, { zp: 'ZP10', wp: 'WP7' }], 'S1').schritte;
+  assert.equal(spaeter[1].machbar, null);
+  assert.equal(spaeter[1].grund, 'fahrzeit-unbekannt');
+  d.wp.get('WP7').erstesAuto = t('12:20');
+  // Derselbe Punkt bei zwei sich überschneidenden WPs: einfach stehen bleiben
+  const bleiben = planBerechnen(d, [{ zp: 'ZP9', wp: 'WP6' }, { zp: 'ZP9', wp: 'WP7' }], 'S1').schritte;
+  assert.equal(bleiben[1].uebergang.gleicherPunkt, true);
+  assert.equal(bleiben[1].machbar, true);
+  assert.equal(bleiben[1].pufferMin, 0);
 });
 
 test('Sprache: Deutsch als Standard, sonst Systemsprache', () => {

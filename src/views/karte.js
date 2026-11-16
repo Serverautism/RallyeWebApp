@@ -46,8 +46,8 @@ function blattZp(id) {
   const d = zustand.daten;
   const zp = d.zp.get(id);
   if (!zp) return '';
-  const p = d.ort.get(zp.parkplatz);
-  const z = zufahrtText(zp.parkplatz);
+  const p = zp.parkplatz ? d.ort.get(zp.parkplatz) : null;
+  const z = p ? zufahrtText(p.id) : null;
   const s = d.strecken.get(zp.strecke);
   return html`<div class="blatt-kopf">
       <span class="zp-nummer gross">${zp.kurz}</span>
@@ -57,14 +57,18 @@ function blattZp(id) {
       </div>
     </div>
     <div class="chips-zeile">
-      <span class="chip-info">${icon('gehen', 15)} ${t('zp.fussweg_ab', { min: zp.fusswegMin, p: p?.id ?? '' })}</span>
+      ${p
+        ? html`<span class="chip-info">${icon('gehen', 15)} ${zp.fusswegMin !== null ? t('zp.fussweg_ab', { min: zp.fusswegMin, p: p.id }) : t('zp.fussweg_unbekannt', { p: p.id })}</span>`
+        : html`<span class="chip-info">${t('zp.kein_parkplatz')}</span>`}
       ${feld(zp, 'untergrund') ? html`<span class="chip-info">${feld(zp, 'untergrund')}</span>` : ''}
-      <span class="chip-info ${z.art === 'warnung' ? 'chip-warnung' : ''}">${z.text}</span>
+      ${z ? html`<span class="chip-info ${z.art === 'warnung' ? 'chip-warnung' : ''}">${z.text}</span>` : ''}
       ${s.wps.map((w) => statusPlakette(w, { mitWp: true, ohneBeendet: true }))}
     </div>
     <div class="knopf-reihe">
       <a class="knopf knopf-dunkel" href="#/zp/${zp.id}">${t('zp.steckbrief')}</a>
-      ${p ? navigationsKnopf(p.lage, `${p.id} · ${feld(p, 'name')}`, t('allg.navigation_zu', { ziel: p.id })) : ''}
+      ${p
+        ? navigationsKnopf(p.lage, `${p.id} · ${feld(p, 'name')}`, t('allg.navigation_zu', { ziel: p.id }))
+        : navigationsKnopf(zp.mitte, `${t('zp.abk')} ${zp.kurz} · ${feld(zp, 'name')}`, t('allg.navigation_zu', { ziel: `${t('zp.abk')} ${zp.kurz}` }))}
     </div>`;
 }
 
@@ -86,7 +90,10 @@ function blattOrt(id) {
       ? html`<div class="chips-zeile">
           ${iv.length
             ? iv.map((x) => html`<span class="chip-info chip-warnung">${t('zufahrt.zeitraum', { wp: wpKurz(d.wp.get(x.wp)), von: zeitMitTag(x.von), bis: zeit(x.bis) })}</span>`)
-            : html`<span class="chip-info">${t('zufahrt.frei', { p: o.id })}</span>`}
+            : (() => {
+                const z = zufahrtText(o.id);
+                return html`<span class="chip-info ${z.art === 'warnung' ? 'chip-warnung' : ''}">${z.text}</span>`;
+              })()}
         </div>`
       : ''}
     ${zps.length
@@ -106,7 +113,7 @@ function blattStrecke(id) {
       <span class="wp-symbol">${t('wp.abk')}</span>
       <div class="blatt-titel">
         <h2>${t('wp.abk')} ${wpListeText(s)} · ${feld(s, 'name')}</h2>
-        <span class="blatt-unter">${km(s.laengeKm)}${feld(s, 'belag') ? ` · ${feld(s, 'belag')}` : ''}</span>
+        <span class="blatt-unter">${[s.laengeKm ? km(s.laengeKm) : '', feld(s, 'belag')].filter(Boolean).join(' · ')}</span>
       </div>
     </div>
     ${feld(s, 'hinweis') ? html`<p class="blatt-text">${feld(s, 'hinweis')}</p>` : ''}

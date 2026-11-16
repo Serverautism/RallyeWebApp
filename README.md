@@ -14,7 +14,9 @@ und Mac wählt man bei der Navigation zwischen Apple Karten und Google Maps.
 Die Grundkarte kommt direkt von [OpenFreeMap](https://openfreemap.org), die eigenen Ebenen
 (Strecken, Zonen, Punkte) vom eigenen Webspace – zusammengesetzt wird auf dem Handy.
 
-> Die mitgelieferten Daten sind **Beispieldaten** (siehe [`daten/LIESMICH.md`](daten/LIESMICH.md)).
+> In `daten/` stehen zurzeit **Testdaten der Rallye 2026** aus dem Programmheft – die Karte ist noch
+> ein Platzhalter (siehe [`daten/LIESMICH.md`](daten/LIESMICH.md)). Der erfundene Beispieldatensatz
+> liegt unter `test/beispiel/daten/`.
 
 ## Schnellstart
 
@@ -104,7 +106,7 @@ QR-Codes stabil, auch wenn du den Hoster wechselst.
 - **Daten:** `daten/manifest.json` nennt die aktuellen Dateien (mit Versionskennung im Namen).
   Beim Start wird nur das kleine Manifest geprüft; geänderte Dateien werden nachgeladen.
 - **Grundkarte:** Im Hintergrund wird die Region aus `einstellungen.json` bis Zoom 14 direkt von
-  OpenFreeMap gespeichert (≈ 150–200 Dateien bei den Beispieldaten, höchstens 4 gleichzeitig).
+  OpenFreeMap gespeichert (≈ 500 Dateien bei der Region 2026, höchstens 4 gleichzeitig).
   Neue Kartenversionen werden erst übernommen, wenn sie vollständig gespeichert sind.
 - **Weitere Kartenansichten** (Entdecken, Straßen) nutzen dieselben Kacheln; gespeichert wird beim
   ersten Auswählen nur ihre Stil-Datei. Das **Luftbild** kommt direkt vom Landesdienst und ist nur

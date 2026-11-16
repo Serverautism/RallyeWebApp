@@ -8,3 +8,6 @@ Shakedown;Testfahrt vor der Rallye, um das Setup abzustimmen.;Shakedown;Test run
 Aufschrieb;Die Streckennotizen, die der Beifahrer während der Fahrt vorliest.;Pace notes;The notes the co-driver reads out during the stage.
 000 · 00 · 0;Sicherheitsfahrzeuge vor dem ersten Teilnehmer. Nach dem 0-Fahrzeug beginnt der Wettbewerb.;000 · 00 · 0;Safety cars ahead of the first competitor. Competition starts after the 0 car.
 Besenwagen;Fährt hinter dem letzten Teilnehmer. Danach wird die WP wieder freigegeben.;Sweeper car;Follows the last competitor. The stage is reopened afterwards.
+DA · TA;Dokumentenabnahme und Technische Abnahme vor dem Start: Papiere und Fahrzeuge werden geprüft.;DA · TA;Document check and scrutineering before the start: papers and cars are checked.
+Service IN;Einfahrt in den Servicepark – ab hier beginnt das Service-Zeitfenster.;Service in;Entry into the service park – the service time window starts here.
+Legend / Demonstrationsfahrt;Historische Rallyefahrzeuge, die in einer eigenen Liste starten – nicht in der Bestzeit-Wertung.;Legend / demonstration run;Historic rally cars starting from a separate list – not part of the fastest-time classification.

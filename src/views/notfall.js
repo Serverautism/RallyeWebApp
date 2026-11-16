@@ -6,6 +6,7 @@ import { t, feld } from '../app/i18n.js';
 import { zustand } from '../app/zustand.js';
 import { jetzt } from '../app/uhr.js';
 import { zahl } from '../app/format.js';
+import { wpZeitStatus } from '../lib/planer.js';
 import { naechsteStrecke, naechsterZp } from '../app/ortung.js';
 import { standortStarten, standortLaeuft, standortVerfuegbar } from '../app/position.js';
 import { toast } from '../app/toast.js';
@@ -23,7 +24,9 @@ function positionBeschreiben() {
   if (s && s.abstandM <= AUF_STRECKE_M) {
     const st = d.strecken.get(s.strecke);
     const nun = jetzt();
-    const laufend = st.wps.map((id) => d.wp.get(id)).find((w) => w.sperrVon <= nun && nun <= w.sperrBis);
+    const laufend = st.wps
+      .map((id) => d.wp.get(id))
+      .find((w) => ['gesperrt', 'laeuft'].includes(wpZeitStatus(d, w.id, nun)?.status));
     const nummern = laufend ? laufend.kurz : st.wps.map((id) => d.wp.get(id).kurz).join('/');
     strecke = {
       text: `${t('wp.abk')} ${nummern} ${feld(st, 'name')}`,

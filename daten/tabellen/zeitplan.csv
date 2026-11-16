@@ -1,9 +1,11 @@
 tag;von;bis;typ;titel_de;titel_en;ort;ort_de;ort_en
-fr;10:00;14:00;abnahme;Dokumentenabnahme;Document check;R1;Automobile Welt Eisenach, Ehrhardt-Saal;Automobile Welt Eisenach, Ehrhardt hall
-fr;10:30;15:00;abnahme;Technische Abnahme;Scrutineering;R1;AWE Haupttor;AWE main gate
-fr;16:01;;start;Start Etappe 1 (1. Fahrzeug);Start of leg 1 (first car);M1;;
-fr;18:30;;parc_ferme;Parc Fermé (1. Fahrzeug);Parc fermé (first car);S1;;
-sa;08:01;;start;Start Etappe 2 (1. Fahrzeug);Start of leg 2 (first car);S1;;
-sa;09:45;10:15;service;Service A (1. Fahrzeug);Service A (first car);S1;;
-sa;13:15;;ziel;Zielankunft (1. Fahrzeug);Finish (first car);M1;;
-sa;15:30;;siegerehrung;Siegerehrung;Prize-giving;M1;Marktplatz Eisenach;Market square Eisenach
+fr;07:00;10:00;abnahme;Dokumentenabnahme;Document check;R2;Zelt DA / TA, Festplatz Spicke;Tent DA / TA, Festplatz Spicke
+fr;07:15;12:30;abnahme;Technische Abnahme;Scrutineering;R2;Zelt DA / TA, Festplatz Spicke;Tent DA / TA, Festplatz Spicke
+fr;14:00;;start;Start (1. Fahrzeug);Start (first car);S1;Festplatz Spicke;Festplatz Spicke
+fr;16:46;;ziel;Ziel Etappe 1 (1. Fahrzeug);Finish of leg 1 (first car);S1;Festplatz Spicke;Festplatz Spicke
+sa;11:30;;start;Start (1. Fahrzeug);Start (first car);S1;Festplatz Spicke;Festplatz Spicke
+sa;13:00;;sonstiges;Teampräsentation;Team presentation;M1;Eisenacher Markt;Eisenach market square
+sa;13:51;;sonstiges;Teampräsentation (1. Fahrzeug);Team presentation (first car);M1;Eisenacher Markt;Eisenach market square
+sa;14:36;;service;Service IN (1. Fahrzeug);Service in (first car);S1;Festplatz Spicke;Festplatz Spicke
+sa;17:17;;ziel;Ziel (1. Fahrzeug);Finish (first car);S1;Festplatz Spicke;Festplatz Spicke
+sa;21:30;;siegerehrung;Siegerehrung (ca.);Prize-giving (approx.);S1;Festzelt, Festplatz Spicke;Marquee, Festplatz Spicke

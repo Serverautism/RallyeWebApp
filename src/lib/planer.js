@@ -2,8 +2,9 @@
 // Keine Abhängigkeit vom Browser – wird auch in den Tests verwendet.
 //
 // Erwartete Datenstruktur `d`:
-//   d.wp:    Map<id, {id, strecke, erstesAuto, sperrVon, sperrBis, intervallMin, schnittKmh, laengeKm}>  (Zeiten in ms)
-//   d.zp:    Map<id, {id, strecke, km, parkplatz, fusswegMin}>
+//   d.wp:    Map<id, {id, strecke, erstesAuto, sperrVon, sperrBis, intervallMin, schnittKmh, laengeKm}>  (Zeiten in ms;
+//            sperrVon/sperrBis sind null, wenn der Veranstalter keine Sperrzeiten angegeben hat)
+//   d.zp:    Map<id, {id, strecke, km, parkplatz, fusswegMin}>  (parkplatz und fusswegMin können null sein)
 //   d.ort:   Map<id, {id, typ, gesperrtMit: string[]}>
 //   d.fahrzeit(vonId, nachId) → Minuten | null
 //   d.starterAnzahl: number
@@ -33,8 +34,8 @@ export function letztesAutoImZiel(wp, starterAnzahl) {
 
 /**
  * Status einer WP allein aus dem Zeitplan (es gibt keinen Live-Status):
- *   geplant  – vor der Straßensperrung
- *   gesperrt – Straßen gesperrt, das erste Auto ist noch nicht gestartet
+ *   geplant  – vor der Straßensperrung (ohne bekannte Sperrzeiten: vor dem ersten Auto)
+ *   gesperrt – Straßen gesperrt, das erste Auto ist noch nicht gestartet (nur mit bekannten Sperrzeiten)
  *   laeuft   – vom ersten Auto bis zum geschätzten letzten Auto im Ziel (spätestens Sperrende)
  *   beendet  – danach
  * @returns {{status: string, ende: number} | null}
@@ -42,9 +43,11 @@ export function letztesAutoImZiel(wp, starterAnzahl) {
 export function wpZeitStatus(d, wpId, t) {
   const wp = d.wp.get(wpId);
   if (!wp) return null;
-  const ende = Math.min(letztesAutoImZiel(wp, d.starterAnzahl), wp.sperrBis);
-  if (t < wp.sperrVon) return { status: 'geplant', ende };
-  if (t < wp.erstesAuto) return { status: 'gesperrt', ende };
+  const mitSperrung = wp.sperrVon !== null && wp.sperrVon !== undefined && wp.sperrBis !== null && wp.sperrBis !== undefined;
+  const letztes = letztesAutoImZiel(wp, d.starterAnzahl);
+  const ende = mitSperrung ? Math.min(letztes, wp.sperrBis) : letztes;
+  if (mitSperrung && t < wp.sperrVon) return { status: 'geplant', ende };
+  if (t < wp.erstesAuto) return { status: mitSperrung ? 'gesperrt' : 'geplant', ende };
   if (t < ende) return { status: 'laeuft', ende };
   return { status: 'beendet', ende };
 }
@@ -61,15 +64,33 @@ export function alleDurchfahrten(d) {
   return liste.sort((a, b) => a.erster - b.erster);
 }
 
-/** Zeitintervalle, in denen die Zufahrt zu einem Ort (Parkplatz) gesperrt ist. */
+/** Hat die WP bekannte Sperrzeiten? */
+export function hatSperrzeiten(wp) {
+  return Boolean(wp) && wp.sperrVon !== null && wp.sperrVon !== undefined && wp.sperrBis !== null && wp.sperrBis !== undefined;
+}
+
+/**
+ * Zeitintervalle, in denen die Zufahrt zu einem Ort (Parkplatz) gesperrt ist.
+ * WPs ohne angegebene Sperrzeiten fehlen hier (siehe sperrzeitenUnbekannt).
+ */
 export function sperrIntervalle(d, ortId) {
-  const ort = d.ort.get(ortId);
+  const ort = ortId ? d.ort.get(ortId) : null;
   if (!ort) return [];
   return (ort.gesperrtMit || [])
     .map((wpId) => d.wp.get(wpId))
-    .filter(Boolean)
+    .filter(hatSperrzeiten)
     .map((wp) => ({ von: wp.sperrVon, bis: wp.sperrBis, wp: wp.id }))
     .sort((a, b) => a.von - b.von);
+}
+
+/** Wird die Zufahrt zu einem Ort durch eine WP gesperrt, deren Sperrzeiten nicht angegeben sind? */
+export function sperrzeitenUnbekannt(d, ortId) {
+  const ort = ortId ? d.ort.get(ortId) : null;
+  if (!ort) return false;
+  return (ort.gesperrtMit || []).some((wpId) => {
+    const wp = d.wp.get(wpId);
+    return wp && !hatSperrzeiten(wp);
+  });
 }
 
 /** Intervall, das den Zeitpunkt t enthält (von ≤ t < bis), sonst null. */
@@ -157,13 +178,27 @@ export function planBerechnen(d, eintraege, startOrt) {
     };
 
     if (!vorher) {
-      const fahr = d.fahrzeit(startOrt, parkplatz);
+      const fahr = parkplatz ? d.fahrzeit(startOrt, parkplatz) : null;
       schritt.fahrMin = fahr;
       if (fahr !== null && fahr !== undefined) schritt.abfahrtSpaetestens = ankunftSpaetestens - fahr * MIN;
+    } else if (vorher.zp === e.zp) {
+      // Derselbe Zuschauerpunkt: einfach stehen bleiben – auch wenn sich die Durchfahrten überschneiden.
+      schritt.fahrMin = 0;
+      schritt.uebergang = {
+        freiAb: vorher.letzter,
+        freiWegen: null,
+        fussMin: 0,
+        fahrMin: 0,
+        ankunft: vorher.letzter,
+        ankunftEffektiv: vorher.letzter,
+        gleicherParkplatz: false,
+        gleicherPunkt: true,
+      };
+      schritt.pufferMin = Math.max(0, Math.floor((e.df.erster - vorher.letzter) / MIN));
     } else {
       // Man schaut bis zum letzten Auto, geht zum Parkplatz zurück und fährt los, sobald die Zufahrt frei ist.
-      const zurueckAmParkplatz = vorher.letzter + vorher.fusswegMin * MIN;
-      const gleicherParkplatz = vorher.parkplatz === parkplatz;
+      const zurueckAmParkplatz = vorher.letzter + (vorher.fusswegMin || 0) * MIN;
+      const gleicherParkplatz = Boolean(parkplatz) && vorher.parkplatz === parkplatz;
       let freiAb;
       let freiWegen = null;
       let fahr;
@@ -176,7 +211,7 @@ export function planBerechnen(d, eintraege, startOrt) {
         const frei = fruehesteFreigabe(sperrIntervalle(d, vorher.parkplatz), zurueckAmParkplatz);
         freiAb = frei.zeit;
         freiWegen = frei.grund ? frei.grund.wp : null;
-        fahr = d.fahrzeit(vorher.parkplatz, parkplatz);
+        fahr = parkplatz && vorher.parkplatz ? d.fahrzeit(vorher.parkplatz, parkplatz) : null;
         ankunft = fahr === null || fahr === undefined ? null : freiAb + fahr * MIN;
       }
       schritt.fahrMin = fahr;
@@ -191,7 +226,11 @@ export function planBerechnen(d, eintraege, startOrt) {
       if (fahr !== null && fahr !== undefined) {
         schritt.abfahrtSpaetestens = gleicherParkplatz ? null : ankunftSpaetestens - fahr * MIN;
       }
-      if (ankunft === null) {
+      if (ankunft === null && e.df.erster < vorher.letzter) {
+        // Überschneidung ist auch ohne Fahrzeit klar: das erste Auto kommt, bevor das letzte am vorigen Punkt durch ist.
+        schritt.machbar = false;
+        schritt.grund = 'ueberschneidung';
+      } else if (ankunft === null) {
         schritt.machbar = null;
         schritt.grund = 'fahrzeit-unbekannt';
       } else {
