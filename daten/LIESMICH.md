@@ -9,8 +9,8 @@ alles gründlich und meldet Fehler mit **Datei und Zeile**.
 > Spicke, Nennliste, Hinweise von Forstamt und Sicherheit. **Nicht** im Programmheft standen:
 > Sperrzeiten, Parkplätze (außer am Start WP 3/5), Fußwege, Fahrzeiten, die Länge von WP 1/2,
 > Straßenbelag und Kontaktdaten – diese Felder sind leer. Von der **Karte** (`karte/*.geojson`) sind
-> die Strecken Floh-Seligenthal (`FS`, WP 1/2) und Krauthäuser Loch (`KL`, WP 3/5) digitalisiert;
-> alles andere ist noch ein grober Platzhalter (`"platzhalter": true`).
+> alle drei Strecken digitalisiert (`FS`, `KL`, `FG`); Zuschauerpunkte und Orte sind noch grobe
+> Platzhalter (`"platzhalter": true`), Sperrzonen fehlen noch.
 > Solange `"beispieldaten": true` gesetzt ist, zeigt die App einen gelben Hinweis.
 >
 > Der frühere, erfundene Beispieldatensatz (fiktive Rallye 2027) liegt unter `test/beispiel/daten/`
