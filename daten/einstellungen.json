@@ -7,8 +7,8 @@
     "veranstalter": "MC Eisenach e. V. im ADAC",
     "zeitzone": "Europe/Berlin",
     "beispieldaten": true,
-    "hinweis_de": "Testdaten der Rallye 2026 – Karte nur Platzhalter, Sperrzeiten und Parkplätze fehlen",
-    "hinweis_en": "Test data from the 2026 rally – map is a placeholder, closure times and car parks missing"
+    "hinweis_de": "Testdaten der Rallye 2026 – Karte noch unvollständig, Sperrzeiten und Parkplätze fehlen",
+    "hinweis_en": "Test data from the 2026 rally – map not complete yet, closure times and car parks missing"
   },
   "tage": [
     { "id": "fr", "datum": "2026-05-29", "name_de": "Freitag", "name_en": "Friday" },
