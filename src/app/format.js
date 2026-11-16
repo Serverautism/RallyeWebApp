@@ -38,7 +38,8 @@ export function zahl(wert, stellen = 1) {
   return new Intl.NumberFormat(gebietsschema(), { maximumFractionDigits: stellen, minimumFractionDigits: 0 }).format(wert);
 }
 
-export const km = (wert) => `${zahl(wert, 1)} km`;
+// Längen wie im Programmheft mit bis zu zwei Nachkommastellen (11,35 km)
+export const km = (wert) => `${zahl(wert, 2)} km`;
 export const minuten = (n) => `${Math.round(n)} min`;
 
 /** "WP1" → "WP 1" (bzw. "SS 1" auf Englisch) */

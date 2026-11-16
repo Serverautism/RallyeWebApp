@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { datenBauen } from '../scripts/daten-bauen.mjs';
+import { datenBauen, ersteLageAufLinie } from '../scripts/daten-bauen.mjs';
 
 const PROJEKT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 // Fester Beispieldatensatz (fiktive Rallye 2027) – unabhängig davon, was gerade in daten/ steht
@@ -215,4 +215,26 @@ test('Platzhalter-Linien: Länge wird nicht als echte Angabe ausgegeben', () => 
   // In den Beispieldaten ist keine WP-Länge angegeben → alle Längen unsicher, Strecken ohne Länge
   assert.ok(erg.programm.pruefungen.every((x) => x.laengeUnsicher === true));
   assert.ok(erg.programm.strecken.every((s) => s.laengeKm === null));
+});
+
+test('Schleifen: ein Zuschauerpunkt zählt bei der ersten Durchfahrt', () => {
+  // Start, zweimal um ein Viereck (je ca. 2,9 km), dann nach Norden
+  const runde = [[10.0, 51.0], [10.01, 51.0], [10.01, 50.995], [10.0, 50.995], [10.0, 51.0]];
+  const linie = [...runde, ...runde.slice(1), [10.0, 51.01]];
+  const { km, abstand } = ersteLageAufLinie(linie, [10.005, 51.0003]);
+  assert.ok(km > 0.3 && km < 0.4, `km ${km}`); // erste Runde, nicht die zweite (~3,2 km)
+  assert.ok(abstand < 0.05);
+  // Punkt am Nordende: nur eine Durchfahrt
+  const nord = ersteLageAufLinie(linie, [10.0003, 51.008]);
+  assert.ok(nord.km > 5.5, `km ${nord.km}`);
+});
+
+test('Offizielle WP-Länge hat Vorrang vor der Linie', () => {
+  const w = kopie();
+  ersetzen(w, 'tabellen/pruefungen.csv', 'WP1;Hohe Sonne 1;Hohe Sonne 1;HS;fr;16:35;15:35;18:05;1;85;\n', 'WP1;Hohe Sonne 1;Hohe Sonne 1;HS;fr;16:35;15:35;18:05;1;85;5,55\n');
+  const erg = bauen(w);
+  assert.deepEqual(erg.fehler, []);
+  assert.equal(erg.programm.pruefungen.find((x) => x.id === 'WP1').laengeKm, 5.55);
+  assert.equal(erg.programm.strecken.find((s) => s.id === 'HS').laengeKm, 5.55);
+  assert.ok(erg.programm.pruefungen.every((x) => !('_laengeAngegeben' in x)));
 });

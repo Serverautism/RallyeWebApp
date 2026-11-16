@@ -361,6 +361,31 @@ function geoLesen(wurzel, name, m) {
 // ---------------------------------------------------------------------------
 const rund = (z, stellen = 5) => Math.round(z * 10 ** stellen) / 10 ** stellen;
 
+/**
+ * Lage eines Punkts auf einer Linie (km ab Start) und sein Abstand (km).
+ * Fährt die Strecke an derselben Stelle mehrmals vorbei (Schleife, Runden), zählt die ERSTE
+ * Durchfahrt: unter allen Abschnitten, die höchstens 30 m weiter weg liegen als der nächste,
+ * gewinnt der früheste.
+ */
+export function ersteLageAufLinie(koordinaten, punkt) {
+  const p = turf.point(punkt);
+  const abschnitte = [];
+  let bisher = 0;
+  for (let i = 1; i < koordinaten.length; i++) {
+    const a = koordinaten[i - 1].slice(0, 2);
+    const b = koordinaten[i].slice(0, 2);
+    const stueck = turf.lineString([a, b]);
+    const n = turf.nearestPointOnLine(stueck, p, { units: 'kilometers' });
+    const lage = n.properties.lineDistance ?? n.properties.location;
+    const abstand = n.properties.pointDistance ?? n.properties.dist;
+    abschnitte.push({ km: bisher + lage, abstand });
+    bisher += turf.length(stueck, { units: 'kilometers' });
+  }
+  const minimum = Math.min(...abschnitte.map((x) => x.abstand));
+  const erster = abschnitte.find((x) => x.abstand <= minimum + 0.03);
+  return { km: erster.km, abstand: minimum };
+}
+
 function koordinatenRunden(g) {
   const r = (k) => (typeof k[0] === 'number' ? [rund(k[0]), rund(k[1])] : k.map(r));
   return { type: g.type, coordinates: r(g.coordinates) };
@@ -631,6 +656,7 @@ export function datenBauen({ wurzel = PROJEKT, ausgabe, schreiben = true } = {})
       laengeKm: rund(w.laenge_km ?? laengeGeo ?? 0, 2),
       // Länge nur aus einer Platzhalter-Linie geschätzt → in der App nicht anzeigen
       laengeUnsicher: w.laenge_km === null && platzhalter,
+      _laengeAngegeben: w.laenge_km !== null,
       _ms: { erstes, von, bis },
       _zeile: w._zeile,
     });
@@ -725,9 +751,7 @@ export function datenBauen({ wurzel = PROJEKT, ausgabe, schreiben = true } = {})
     const flaeche = { type: 'Feature', properties: {}, geometry: g.geometry };
     const linie = turf.lineString(geoMap.strecken.get(z.strecke).geometry.coordinates);
     const mitte = turf.centroid(flaeche).geometry.coordinates;
-    const naechster = turf.nearestPointOnLine(linie, turf.point(mitte), { units: 'kilometers' });
-    const kmGeo = naechster.properties.lineDistance ?? naechster.properties.location;
-    const abstand = naechster.properties.pointDistance ?? naechster.properties.dist;
+    const { km: kmGeo, abstand } = ersteLageAufLinie(linie.geometry.coordinates, mitte);
     if (abstand > 1) m.warnungBei(zpRel, z._zeile, `„${id}“ liegt ${abstand.toFixed(1)} km von der Strecke „${z.strecke}“ entfernt – richtige Strecke eingetragen?`);
     if (turf.booleanIntersects(flaeche, linie)) {
       m.fehlerBei(zpRel, z._zeile, `Sicherheit: Die Fläche von „${id}“ berührt oder kreuzt die WP-Strecke „${z.strecke}“.`);
@@ -923,7 +947,7 @@ export function datenBauen({ wurzel = PROJEKT, ausgabe, schreiben = true } = {})
   if (m.fehler.length) return { ok: false, fehler: m.fehler, warnungen: m.warnungen, zusammenfassung };
 
   const ohneIntern = (o) => {
-    const { _ms, _zeile, ...rest } = o;
+    const { _ms, _zeile, _laengeAngegeben, ...rest } = o;
     return rest;
   };
   const programm = {
@@ -970,10 +994,10 @@ export function datenBauen({ wurzel = PROJEKT, ausgabe, schreiben = true } = {})
       belag_en: s.belag_en || null,
       hinweis_de: s.hinweis_de || null,
       hinweis_en: s.hinweis_en || null,
-      // Bei Platzhalter-Linien nur eine angegebene WP-Länge verwenden (sonst null = unbekannt)
-      laengeKm: platzhalterStrecken.has(s.id)
-        ? (wpAus.find((w) => w.strecke === s.id && !w.laengeUnsicher)?.laengeKm ?? null)
-        : rund(streckenLaenge.get(s.id) ?? 0, 2),
+      // Offizielle WP-Länge (laenge_km) hat Vorrang; sonst die Linie – außer sie ist ein Platzhalter (dann null = unbekannt)
+      laengeKm:
+        wpAus.find((w) => w.strecke === s.id && w._laengeAngegeben)?.laengeKm ??
+        (platzhalterStrecken.has(s.id) ? null : rund(streckenLaenge.get(s.id) ?? 0, 2)),
       wps: wpAus.filter((w) => w.strecke === s.id).map((w) => w.id),
     })),
     pruefungen: wpAus.map(ohneIntern),

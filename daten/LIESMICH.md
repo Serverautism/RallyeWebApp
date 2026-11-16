@@ -8,9 +8,9 @@ alles gründlich und meldet Fehler mit **Datei und Zeile**.
 > Zeitplan, Wertungsprüfungen mit Startzeiten und Längen, Zuschauerpunkte, Orte am Festplatz
 > Spicke, Nennliste, Hinweise von Forstamt und Sicherheit. **Nicht** im Programmheft standen:
 > Sperrzeiten, Parkplätze (außer am Start WP 3/5), Fußwege, Fahrzeiten, die Länge von WP 1/2,
-> Straßenbelag und Kontaktdaten – diese Felder sind leer. Von der **Karte** (`karte/*.geojson`) ist
-> die Strecke Floh-Seligenthal (`FS`, WP 1/2) digitalisiert; alles andere ist noch ein grober
-> Platzhalter (`"platzhalter": true`).
+> Straßenbelag und Kontaktdaten – diese Felder sind leer. Von der **Karte** (`karte/*.geojson`) sind
+> die Strecken Floh-Seligenthal (`FS`, WP 1/2) und Krauthäuser Loch (`KL`, WP 3/5) digitalisiert;
+> alles andere ist noch ein grober Platzhalter (`"platzhalter": true`).
 > Solange `"beispieldaten": true` gesetzt ist, zeigt die App einen gelben Hinweis.
 >
 > Der frühere, erfundene Beispieldatensatz (fiktive Rallye 2027) liegt unter `test/beispiel/daten/`
@@ -56,7 +56,7 @@ exakt gleich geschrieben sein.
 | `sperrung_von` / `sperrung_bis` | – | `07:35` / `10:05` | Vollsperrung laut Sicherheitskonzept; beide oder keine – leer = App zeigt „Sperrzeit nicht angegeben“ |
 | `intervall_min` | – | `1` | Startabstand in Minuten (Standard 1) |
 | `schnitt_kmh` | – | `75` | geschätzter Schnitt für Durchfahrtszeiten (Standard 80) |
-| `laenge_km` | – | `4,78` | offizielle Länge; leer = aus der Linie berechnet |
+| `laenge_km` | – | `4,78` | offizielle Länge – hat Vorrang vor der Linie, auch auf der Karte; leer = aus der Linie berechnet |
 
 Geprüft wird u. a.: Sperrung beginnt vor dem ersten Auto und dauert (laut Berechnung) bis nach dem letzten.
 
@@ -130,7 +130,9 @@ Fehlende Paare meldet der Build als Hinweis. Tipp: vorab mit OSRM/GraphHopper be
 - Format: GeoJSON `FeatureCollection`, Koordinaten in **[Länge, Breite]** (WGS84).
   Vertauschte Koordinaten erkennt der Build und meldet sie.
 - Jedes Objekt braucht unter `properties` eine `"id"`, z. B. `{"id": "ZP3"}`.
-- Typen: Strecken = `LineString` (in Fahrtrichtung zeichnen: erster Punkt = Start),
+- Typen: Strecken = `LineString` (in Fahrtrichtung zeichnen: erster Punkt = Start; Schleifen, die
+  mehrmals gefahren werden, so oft zeichnen wie gefahren – ein Zuschauerpunkt zählt dann bei der
+  ersten Durchfahrt),
   Zuschauerpunkte und Sperrzonen = `Polygon`, Orte = `Point`.
 - **GPX vom Veranstalter** umwandeln: z. B. auf geojson.io öffnen und als GeoJSON speichern,
   oder `ogr2ogr -f GeoJSON strecken.geojson strecke.gpx tracks`. Danach `id` ergänzen.
