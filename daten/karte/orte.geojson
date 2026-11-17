@@ -109,15 +109,13 @@
   {
    "type": "Feature",
    "properties": {
-    "id": "P1",
-    "platzhalter": true,
-    "hinweis": "Platzhalter – grobe Lage aus der Programmheft-Skizze, bitte durch digitalisierte Daten ersetzen"
+    "id": "P1"
    },
    "geometry": {
     "type": "Point",
     "coordinates": [
-     10.26797,
-     51.00312
+     10.271474,
+     51.000932
     ]
    }
   }
